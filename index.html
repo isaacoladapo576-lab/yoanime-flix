@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=14">
+    <link rel="stylesheet" href="styles.css?v=15">
 
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎌</text></svg>">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -208,15 +208,44 @@
         <iframe id="player-iframe" src="" allowfullscreen allow="autoplay; fullscreen" style="position:absolute; inset:0; width:100%; height:100%; border:none; z-index:2;"></iframe>
     </div>
     
-    <div id="episode-nav" style="display:none; padding:16px; background:#0a0a0a; border-top:1px solid #262626; align-items:center; justify-content:space-between; flex-shrink:0;">
-        <button class="btn-info" onclick="prevEpisode()">Previous</button>
-        <span id="episode-indicator" style="color:white; font-weight:600;">S1:E1</span>
-        <button class="btn-info" onclick="nextEpisode()">Next</button>
+    <div id="episode-nav" class="episode-dock" style="display:none;" aria-label="Episode navigation">
+        <div class="episode-dock-main">
+            <button id="prev-episode-btn" class="episode-step-btn" onclick="prevEpisode()" aria-label="Play previous episode">
+                <span class="episode-step-arrow" aria-hidden="true">←</span>
+                <span class="episode-step-copy"><small>Previous</small><strong>Episode</strong></span>
+            </button>
+
+            <div class="episode-now-playing">
+                <span class="episode-kicker">Now playing</span>
+                <strong id="episode-indicator">S1 · E1</strong>
+            </div>
+
+            <div class="episode-selectors">
+                <label class="episode-select-control" for="player-season-select">
+                    <span>Season</span>
+                    <select id="player-season-select" onchange="onPlayerSeasonChange()" aria-label="Choose season"></select>
+                </label>
+                <label class="episode-select-control" for="player-episode-select">
+                    <span>Episode</span>
+                    <select id="player-episode-select" onchange="onPlayerEpisodeChange()" aria-label="Choose episode"></select>
+                </label>
+            </div>
+
+            <button id="next-episode-btn" class="episode-step-btn episode-step-btn-next" onclick="nextEpisode()" aria-label="Play next episode">
+                <span class="episode-step-copy"><small>Up next</small><strong>Episode</strong></span>
+                <span class="episode-step-arrow" aria-hidden="true">→</span>
+            </button>
+        </div>
+
+        <div class="episode-rail-row">
+            <span class="episode-rail-label">Episodes</span>
+            <div id="episode-quick-list" class="episode-quick-list" aria-label="Episodes in this season"></div>
+        </div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <script src="stream-sources.js?v=6"></script>
-<script src="app.js?v=9"></script>
+<script src="app.js?v=10"></script>
 </body>
 </html>

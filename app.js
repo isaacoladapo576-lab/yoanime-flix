@@ -904,6 +904,7 @@ function updateEpisodeNav() {
 
     buildSeasonSelect();
     buildEpSelect();
+    buildEpisodeQuickList();
 }
 
 function buildSeasonSelect() {
@@ -928,6 +929,37 @@ function buildEpSelect() {
         o.value = e; o.textContent = `Episode ${e}`; o.selected = e === currentEp;
         sel.appendChild(o);
     }
+}
+
+function buildEpisodeQuickList() {
+    const list = document.getElementById('episode-quick-list');
+    if (!list || !currentItem) return;
+
+    const epCount = (currentItem.episodesPerSeason && currentItem.episodesPerSeason[currentSeason - 1]) || 12;
+    list.innerHTML = '';
+    for (let episode = 1; episode <= epCount; episode++) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `episode-chip${episode === currentEp ? ' active' : ''}`;
+        button.textContent = String(episode);
+        button.setAttribute('aria-label', `Play episode ${episode}`);
+        if (episode === currentEp) button.setAttribute('aria-current', 'true');
+        button.addEventListener('click', () => selectPlayerEpisode(episode));
+        list.appendChild(button);
+    }
+
+    const activeButton = list.querySelector('.episode-chip.active');
+    if (activeButton) {
+        requestAnimationFrame(() => activeButton.scrollIntoView({ block: 'nearest', inline: 'center' }));
+    }
+}
+
+function selectPlayerEpisode(episode) {
+    if (!currentItem || episode === currentEp) return;
+    currentEp = episode;
+    isStreaming = false;
+    updateEpisodeNav();
+    loadVideo();
 }
 
 function onPlayerSeasonChange() {
@@ -966,6 +998,20 @@ function prevEpisode() {
     updateEpisodeNav();
     loadVideo();
 }
+
+document.addEventListener('keydown', event => {
+    const player = document.getElementById('player-page');
+    const tagName = event.target && event.target.tagName;
+    if (!currentItem || !player || player.style.display === 'none' || ['INPUT', 'SELECT', 'TEXTAREA'].includes(tagName)) return;
+
+    if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        nextEpisode();
+    } else if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        prevEpisode();
+    }
+});
 
 // ============================================
 // Live TMDB Search
