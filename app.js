@@ -260,6 +260,8 @@ function showSection(section) {
     } else if (section === 'mylist') {
         ['anime-section','shows-section','trending-section','action-section','comedy-section','horror-section'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).style.display = 'none'; });
         heroData = stateCache.mylist.slice(0,6);
+    } else if (section === 'search') {
+        ['anime-section','shows-section','trending-section','action-section','comedy-section','horror-section','mylist-section'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).style.display = 'none'; });
     } else {
         heroData = stateCache.trending.slice(0,6);
     }
@@ -934,3 +936,28 @@ document.addEventListener('click', e => {
         if (r) r.classList.remove('open');
     }
 });
+
+window.searchContent = async function(query = null) {
+    const q = query || document.getElementById('search-input').value.trim();
+    if(!q) return;
+    showSection('search');
+    const resultsGrid = document.getElementById('search-results');
+    resultsGrid.style.display = 'grid';
+    resultsGrid.innerHTML = '<div style="grid-column: 1/-1;text-align:center;padding:50px;color:white;">Searching...</div>';
+    try {
+        const [tmdbMovies, tmdbShows] = await Promise.all([
+            apiFetch(`/search/movie?query=${encodeURIComponent(q)}`),
+            apiFetch(`/search/tv?query=${encodeURIComponent(q)}`)
+        ]);
+        let all = [];
+        if(tmdbMovies) all = all.concat(tmdbMovies.map(i => normalizeItem(i, 'movie')));
+        if(tmdbShows) all = all.concat(tmdbShows.map(i => normalizeItem(i, 'show')));
+        if(all.length === 0) {
+            resultsGrid.innerHTML = '<div style="grid-column: 1/-1;text-align:center;padding:50px;color:white;">No results found.</div>';
+            return;
+        }
+        resultsGrid.innerHTML = all.map(cardHTML).join('');
+    } catch(e) {
+        resultsGrid.innerHTML = '<div style="grid-column: 1/-1;text-align:center;padding:50px;color:white;">Search failed.</div>';
+    }
+};
