@@ -597,7 +597,7 @@ async function _loadVideoInternal() {
             let embedUrl = '';
 
             if (srv.isProxy) {
-                const result = await srv.url(currentItem, currentSeason, currentEp);
+                const result = typeof srv.url === 'function' ? await srv.url(currentItem, currentSeason, currentEp) : null;
                 if (!result) throw new Error("Scraper returned no stream");
                 if (result.iframe === false) {
                     playRawStream(result.url, result.type || 'mp4');
@@ -605,12 +605,16 @@ async function _loadVideoInternal() {
                 }
                 embedUrl = result.url;
             } else if (srv.iframe === false) {
-                const result = await srv.url(currentItem, currentSeason, currentEp);
+                const result = typeof srv.url === 'function' ? await srv.url(currentItem, currentSeason, currentEp) : null;
                 if (!result) throw new Error("Scraper returned no stream");
                 playRawStream(result.rawUrl, result.type);
                 return;
             } else {
-                embedUrl = srv.url(currentItem, currentSeason, currentEp);
+                embedUrl = typeof srv.url === 'function' ? await srv.url(currentItem, currentSeason, currentEp) : srv.url;
+            }
+
+            if (!embedUrl || embedUrl === "undefined" || embedUrl === "null") {
+                throw new Error("Resolved embed URL is invalid or undefined");
             }
 
             console.log(`[Player] Attempt ${attempts}: ${srv.name} → ${embedUrl}`);

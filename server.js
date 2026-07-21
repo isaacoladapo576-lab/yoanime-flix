@@ -366,14 +366,23 @@ const server = http.createServer(async (req, res) => {
     // ── Static Files ──────────────────────────────────────────
     let staticPath = pathname === '/' ? '/index.html' : pathname;
     const filePath = path.join(__dirname, staticPath);
-    const ext      = path.extname(filePath).toLowerCase();
-    const mime     = MIME[ext] || 'application/octet-stream';
+    const ext = path.extname(filePath).toLowerCase();
+    const contentType = MIME[ext] || 'application/octet-stream';
 
-    res.setHeader('Cache-Control', 'no-store');
-    fs.readFile(filePath, (err, data) => {
-        if (err) { res.writeHead(404); return res.end('Not found: ' + staticPath); }
-        res.writeHead(200, {'Content-Type': mime});
-        res.end(data);
+    fs.readFile(filePath, (err, content) => {
+        if (err) {
+            res.writeHead(500, { 'Content-Type': 'text/plain' });
+            res.end(`Server error: ${err.code}`);
+        } else {
+            const headers = { 'Content-Type': contentType };
+            if (ext === '.html' || ext === '.js' || ext === '.css') {
+                headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+                headers['Pragma'] = 'no-cache';
+                headers['Expires'] = '0';
+            }
+            res.writeHead(200, headers);
+            res.end(content);
+        }
     });
 });
 
