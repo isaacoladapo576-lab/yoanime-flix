@@ -726,9 +726,8 @@ function buildServerSelect(servers = getCurrentStreamServers()) {
         currentServerIndex = 0;
     }
     
-    // Update selected text and active state
     if (servers[currentServerIndex]) {
-        sel.querySelector('span').textContent = servers[currentServerIndex].name;
+        sel.textContent = servers[currentServerIndex].name;
     }
     Array.from(opts.children).forEach((child, idx) => {
         child.classList.toggle('active', idx === currentServerIndex);
