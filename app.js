@@ -614,14 +614,6 @@ async function _loadVideoInternal() {
 
             console.log(`[Player] Attempt ${attempts}: ${srv.name} → ${embedUrl}`);
 
-            const endpointOnline = await checkStreamEndpoint(embedUrl);
-            if (loadId !== playbackLoadId) return;
-            if (endpointOnline === false) {
-                console.warn(`[Player] ${srv.name} is offline, trying next server`);
-                tryServer(currentServerIndex + 1);
-                return;
-            }
-
             // Clear previous handlers
             iframe.onload = null;
             iframe.onerror = null;
