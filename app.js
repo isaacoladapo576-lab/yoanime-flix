@@ -606,6 +606,7 @@ async function _loadVideoInternal() {
                 embedUrl = result.url;
             } else if (srv.iframe === false) {
                 const result = await srv.url(currentItem, currentSeason, currentEp);
+                if (!result) throw new Error("Scraper returned no stream");
                 playRawStream(result.rawUrl, result.type);
                 return;
             } else {

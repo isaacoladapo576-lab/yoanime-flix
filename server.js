@@ -191,7 +191,11 @@ const server = http.createServer(async (req, res) => {
             const { scrapeAnichi } = require('./anichi_scraper.js');
             scrapeAnichi(title, ep, season, isDub).then(url => {
                 if (global._anichiLatestReqId[key] !== myReqId) {
-                    console.log(`[Server] Dropping stale Anichi result for ${title} S${season} E${ep} (reqId=${myReqId}, latest=${global._anichiLatestReqId[key]})`);
+                    console.log(`[Server] Dropping stale Anichi result for ${key} (Expected: ${global._anichiLatestReqId[key]}, Got: ${myReqId})`);
+                    if (!res.headersSent) {
+                        res.writeHead(499, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: "Stale request dropped" }));
+                    }
                     return;
                 }
                 if (url) {
