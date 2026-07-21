@@ -38,7 +38,7 @@
                     <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                     <input type="text" id="search-input" class="search-input" placeholder="Titles, people, genres" oninput="handleSearch(this.value)" autocomplete="off">
                 </div>
-                <div class="search-results" id="search-results"></div>
+                <div class="search-overlay" id="search-overlay"></div>
             </div>
             <button class="hamburger" id="hamburger" onclick="toggleMenu()">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
@@ -102,13 +102,6 @@
             <div class="content-row" id="trending-row"></div>
             <button class="row-btn row-btn-right" onclick="scrollRow('trending-row',1)">❯</button>
         </div>
-    </section>
-
-    <section class="content-section" id="search-section" style="display:none; padding-top:40px;">
-        <div class="section-header">
-            <h2 class="section-title">Search Results</h2>
-        </div>
-        <div class="grid" id="search-results"></div>
     </section>
 
     <!-- Top Anime -->
@@ -194,8 +187,14 @@
         </button>
         <div style="flex:1; text-align:center; font-weight:600; font-size:1.1rem; color:white;" id="player-title"></div>
         <div style="display:flex; gap:16px; align-items:center;">
-            <select id="server-select" class="server-select" onchange="changeServer(this.value)"></select>
-            <button id="dub-toggle-btn" class="server-select" style="display:none" onclick="toggleDub()">Sub</button>
+            <div class="custom-dropdown" id="server-dropdown">
+                <div class="dropdown-selected" onclick="toggleDropdown()">
+                    <span id="server-selected">Server</span>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="dropdown-options" id="server-options"></div>
+            </div>
+            <button id="dub-toggle-btn" class="custom-btn" style="display:none" onclick="toggleDub()">Sub</button>
         </div>
     </div>
     

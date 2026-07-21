@@ -705,56 +705,55 @@ function playRawStream(url, type) {
 }
 
 function buildServerSelect(servers = getCurrentStreamServers()) {
-    const sw = document.getElementById('server-switcher');
-    const sel = document.getElementById('server-select');
-    if (!sw || !sel) return;
-
-    sw.style.display = 'block';
+    const sw = document.getElementById('server-dropdown');
+    const sel = document.getElementById('server-selected');
+    const opts = document.getElementById('server-options');
+    if (!sw || !sel || !opts) return;
     
-    // Only rebuild if the options don't match the list size
-    if (sel.options.length !== servers.length) {
-        sel.innerHTML = '';
+    if (opts.children.length !== servers.length) {
+        opts.innerHTML = '';
         servers.forEach((s, i) => {
-            const opt = document.createElement('option');
-            opt.value = i;
-            opt.textContent = s.name;
-            sel.appendChild(opt);
+            const div = document.createElement('div');
+            div.className = 'dropdown-item';
+            div.textContent = s.name;
+            div.onclick = (e) => {
+                e.stopPropagation();
+                sw.classList.remove('open');
+                changeServer(i);
+            };
+            opts.appendChild(div);
         });
         currentServerIndex = 0;
     }
-    sel.value = currentServerIndex;
+    
+    // Update selected text and active state
+    if (servers[currentServerIndex]) {
+        sel.querySelector('span').textContent = servers[currentServerIndex].name;
+    }
+    Array.from(opts.children).forEach((child, idx) => {
+        child.classList.toggle('active', idx === currentServerIndex);
+    });
 
-    // Show Sub/Dub toggle for anime (only if server supports it)
-    const dubToggle = document.getElementById('dub-toggle');
+    const dubToggle = document.getElementById('dub-toggle-btn');
     if (dubToggle) {
         if (!currentItem.isAnime) {
             dubToggle.style.display = 'none';
         } else {
             const srv = servers[currentServerIndex];
-            dubToggle.style.display = 'flex';
-            if (srv && srv.supportsDub) {
-                document.getElementById('btn-sub').style.display = '';
-                document.getElementById('btn-dub').style.display = '';
-                document.getElementById('btn-sub').classList.toggle('active', !isDub);
-                document.getElementById('btn-dub').classList.toggle('active', isDub);
-                // Remove sub-only label if present
-                const lbl = document.getElementById('sub-only-label');
-                if (lbl) lbl.remove();
-            } else {
-                // Hide dub button, show 'Sub Only' label
-                document.getElementById('btn-sub').style.display = 'none';
-                document.getElementById('btn-dub').style.display = 'none';
-                if (!document.getElementById('sub-only-label')) {
-                    const lbl = document.createElement('span');
-                    lbl.id = 'sub-only-label';
-                    lbl.textContent = 'Sub Only';
-                    lbl.style.cssText = 'color:#9898b0;font-size:0.85rem;padding:4px 12px;background:rgba(255,255,255,0.05);border-radius:6px;';
-                    dubToggle.appendChild(lbl);
-                }
+            dubToggle.style.display = 'block';
+            dubToggle.textContent = isDub ? 'Dub' : 'Sub';
+            dubToggle.classList.toggle('active', isDub);
+            // Hide if not supported
+            if (srv && !srv.supportsDub) {
+                dubToggle.style.display = 'none';
             }
         }
     }
 }
+
+window.toggleDropdown = function() {
+    document.getElementById('server-dropdown').classList.toggle('open');
+};
 
 
 
@@ -932,32 +931,55 @@ function clearSearch() {
 
 document.addEventListener('click', e => {
     if (!e.target.closest('.search-wrap')) {
-        const r = document.getElementById('search-results');
+        const r = document.getElementById('search-overlay');
         if (r) r.classList.remove('open');
+    }
+    if (!e.target.closest('.custom-dropdown')) {
+        const drop = document.getElementById('server-dropdown');
+        if (drop) drop.classList.remove('open');
     }
 });
 
-window.searchContent = async function(query = null) {
-    const q = query || document.getElementById('search-input').value.trim();
-    if(!q) return;
-    showSection('search');
-    const resultsGrid = document.getElementById('search-results');
-    resultsGrid.style.display = 'grid';
-    resultsGrid.innerHTML = '<div style="grid-column: 1/-1;text-align:center;padding:50px;color:white;">Searching...</div>';
-    try {
-        const [tmdbMovies, tmdbShows] = await Promise.all([
-            apiFetch(`/search/movie?query=${encodeURIComponent(q)}`),
-            apiFetch(`/search/tv?query=${encodeURIComponent(q)}`)
-        ]);
-        let all = [];
-        if(tmdbMovies) all = all.concat(tmdbMovies.map(i => normalizeItem(i, 'movie')));
-        if(tmdbShows) all = all.concat(tmdbShows.map(i => normalizeItem(i, 'show')));
-        if(all.length === 0) {
-            resultsGrid.innerHTML = '<div style="grid-column: 1/-1;text-align:center;padding:50px;color:white;">No results found.</div>';
-            return;
-        }
-        resultsGrid.innerHTML = all.map(cardHTML).join('');
-    } catch(e) {
-        resultsGrid.innerHTML = '<div style="grid-column: 1/-1;text-align:center;padding:50px;color:white;">Search failed.</div>';
+let _searchTimer = null;
+window.handleSearch = function(query) {
+    if (_searchTimer) clearTimeout(_searchTimer);
+    const overlay = document.getElementById('search-overlay');
+    
+    if (!query.trim()) {
+        overlay.classList.remove('open');
+        overlay.innerHTML = '';
+        return;
     }
+    
+    overlay.classList.add('open');
+    overlay.innerHTML = '<div style="padding: 20px; text-align: center; color: white;">Searching...</div>';
+    
+    _searchTimer = setTimeout(async () => {
+        try {
+            const [tmdbMovies, tmdbShows] = await Promise.all([
+                apiFetch(`/search/movie?query=${encodeURIComponent(query.trim())}`),
+                apiFetch(`/search/tv?query=${encodeURIComponent(query.trim())}`)
+            ]);
+            let all = [];
+            if(tmdbMovies) all = all.concat(tmdbMovies.map(i => normalizeItem(i, 'movie')));
+            if(tmdbShows) all = all.concat(tmdbShows.map(i => normalizeItem(i, 'show')));
+            
+            if(all.length === 0) {
+                overlay.innerHTML = '<div style="padding: 20px; text-align: center; color: white;">No results found.</div>';
+                return;
+            }
+            
+            overlay.innerHTML = all.map(item => `
+                <div class="search-item" onclick="openPlayerById('${item.id}'); document.getElementById('search-overlay').classList.remove('open'); document.getElementById('search-input').value='';">
+                    ${item.poster ? `<img src="${item.poster}" alt="${escapeHtml(item.title)}">` : `<div style="width:50px;height:75px;background:#222;border-radius:4px;"></div>`}
+                    <div class="search-item-info">
+                        <div class="search-item-title">${escapeHtml(item.title)}</div>
+                        <div class="search-item-meta">${item.isAnime?'⚔️ Anime':item.type==='movie'?'🎬 Movie':'📺 Show'} · ${item.year}</div>
+                    </div>
+                </div>
+            `).join('');
+        } catch(e) {
+            overlay.innerHTML = '<div style="padding: 20px; text-align: center; color: white;">Search failed.</div>';
+        }
+    }, 400);
 };
