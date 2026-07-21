@@ -186,9 +186,29 @@ function findServerLinkId(serverHtml, isDub) {
         new RegExp(`<div\\b[^>]*data-type=["']${type}["'][^>]*>([\\s\\S]*?)<\\/div>`, 'i')
     );
     const serverGroup = findServerGroup(desiredType) || (!isDub ? findServerGroup('hsub') : null);
-    const serverTag = serverGroup ? (serverGroup[1].match(/<[^>]*data-link-id[^>]*>/i) || [])[0] : null;
-    const linkId = getAttribute(serverTag, 'data-link-id');
-    if (linkId) return linkId;
+    const candidates = serverGroup
+        ? Array.from(serverGroup[1].matchAll(/<([a-z][\w-]*)\b[^>]*data-link-id[^>]*>[\s\S]*?<\/\1>/gi), match => ({
+            linkId: getAttribute(match[0], 'data-link-id'),
+            label: decodeHtml(match[0].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim()
+        })).filter(candidate => candidate.linkId)
+        : [];
+
+    if (candidates.length) {
+        // AniChi's first dub mirror (VidPlay) sometimes resolves to a short
+        // preview instead of the episode. Its HD mirror carries the complete
+        // dub, so prefer that provider while preserving Sub's existing order.
+        if (isDub) {
+            const dubPreference = [/^HD(?:-|\b)/i, /^Vidstream/i, /^VidCloud/i, /^Kiwi/i, /^VidPlay/i];
+            candidates.sort((a, b) => {
+                const rank = candidate => {
+                    const index = dubPreference.findIndex(pattern => pattern.test(candidate.label));
+                    return index === -1 ? dubPreference.length : index;
+                };
+                return rank(a) - rank(b);
+            });
+        }
+        return candidates[0].linkId;
+    }
 
     const available = Array.from(String(serverHtml).matchAll(/data-type=["']([^"']+)["']/gi), match => match[1]).join(', ') || 'none';
     throw new Error(`No ${desiredType} server was found on AniChi (available: ${available})`);

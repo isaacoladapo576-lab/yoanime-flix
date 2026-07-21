@@ -60,6 +60,16 @@ test('AniChi server parser selects Sub and Dub link ids from their groups', () =
     assert.equal(findServerLinkId(html, true), 'dub-link');
 });
 
+test('AniChi server parser prefers the full HD mirror for dubs', () => {
+    const html = `
+      <div class="server-items" data-type="dub">
+        <button data-link-id="short-preview">VidPlay-1</button>
+        <button data-link-id="full-dub">HD-1</button>
+        <button data-link-id="alternate-dub">Vidstream-2</button>
+      </div>`;
+    assert.equal(findServerLinkId(html, true), 'full-dub');
+});
+
 test('AniChi URL parser handles nested JSON and iframe HTML', () => {
     assert.equal(
         extractResolvedUrl({ result: '<iframe src="https://video.example/embed/1"></iframe>' }),
