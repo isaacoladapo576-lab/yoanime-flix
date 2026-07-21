@@ -2,7 +2,13 @@
 
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { extractResolvedUrl, findAnimePath, findServerLinkId } = require('./anichi_scraper');
+const {
+    extractResolvedUrl,
+    findAnimePath,
+    findSeasonPartPaths,
+    findServerLinkId,
+    mapEpisodeAcrossParts
+} = require('./anichi_scraper');
 
 const searchFixture = `
 <a class="aitem" href="/anime/mushoku-season-2-part-2">
@@ -27,6 +33,23 @@ test('AniChi search matching selects the requested later season', () => {
         findAnimePath(searchFixture, 'Mushoku Tensei: Jobless Reincarnation Season 2', 2),
         '/anime/mushoku-season-2'
     );
+});
+
+test('AniChi search matching discovers split cours in playback order', () => {
+    assert.deepEqual(
+        findSeasonPartPaths(searchFixture, 'Mushoku Tensei: Jobless Reincarnation Season 2', 2),
+        [
+            { part: 1, path: '/anime/mushoku-season-2', title: 'Mushoku Tensei: Jobless Reincarnation Season 2' },
+            { part: 2, path: '/anime/mushoku-season-2-part-2', title: 'Mushoku Tensei: Jobless Reincarnation Season 2 Part 2' }
+        ]
+    );
+});
+
+test('continuous season episode numbers map across split cours', () => {
+    assert.deepEqual(mapEpisodeAcrossParts(12, [12, 12]), { partIndex: 0, episode: 12 });
+    assert.deepEqual(mapEpisodeAcrossParts(13, [12, 12]), { partIndex: 1, episode: 1 });
+    assert.deepEqual(mapEpisodeAcrossParts(23, [12, 12]), { partIndex: 1, episode: 11 });
+    assert.equal(mapEpisodeAcrossParts(25, [12, 12]), null);
 });
 
 test('AniChi server parser selects Sub and Dub link ids from their groups', () => {

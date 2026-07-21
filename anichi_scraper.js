@@ -89,7 +89,7 @@ function scoreAnimeCandidate(candidateTitle, requestedTitle, season) {
     return score;
 }
 
-function findAnimePath(html, title, season) {
+function findAnimeCandidates(html, title, season) {
     const cards = [];
     const regex = /<a\b([^>]*href\s*=\s*(?:"[^"]*\/anime\/[^"]+"|'[^']*\/anime\/[^']+'|[^\s>]*\/anime\/[^\s>]+)[^>]*)>([\s\S]*?)<\/a>/gi;
     let match;
@@ -100,11 +100,54 @@ function findAnimePath(html, title, season) {
         const imageTag = (match[2].match(/<img\b[^>]*>/i) || [])[0] || '';
         const titleTag = (match[2].match(/<[^>]+\bdata-en\s*=\s*(?:"[^"]*"|'[^']*')[^>]*>/i) || [])[0] || '';
         const candidateTitle = getAttribute(titleTag, 'data-en') || getAttribute(imageTag, 'alt') || stripTags(match[2]);
-        cards.push({ href, candidateTitle, score: scoreAnimeCandidate(candidateTitle, title, season) });
+        cards.push({
+            path: new URL(href, ANICHI_ORIGIN).pathname,
+            candidateTitle,
+            score: scoreAnimeCandidate(candidateTitle, title, season)
+        });
     }
     cards.sort((a, b) => b.score - a.score);
+    return cards;
+}
+
+function findAnimePath(html, title, season) {
+    const cards = findAnimeCandidates(html, title, season);
     if (!cards.length || cards[0].score < 10) throw new Error('Anime not found on AniChi');
-    return new URL(cards[0].href, ANICHI_ORIGIN).pathname;
+    return cards[0].path;
+}
+
+function findSeasonPartPaths(html, title, season) {
+    const requestedBase = normalizeTitle(title).replace(/\b(?:season|part)\s+\d+\b/g, '').trim();
+    const byPart = new Map();
+
+    for (const card of findAnimeCandidates(html, title, season)) {
+        const candidate = normalizeTitle(card.candidateTitle);
+        if (card.score < 10 || !candidate.includes(requestedBase)) continue;
+
+        const seasonMatch = candidate.match(/\bseason\s+(\d+)\b/);
+        const ordinalSeasonMatch = candidate.match(/\b(\d+)(?:st|nd|rd|th)\s+season\b/);
+        const candidateSeason = Number((seasonMatch || ordinalSeasonMatch || [])[1] || 1);
+        if (candidateSeason !== season) continue;
+
+        const partMatch = candidate.match(/\bpart\s+(\d+)\b/);
+        const part = Number(partMatch ? partMatch[1] : 1);
+        const current = byPart.get(part);
+        if (!current || card.score > current.score) byPart.set(part, card);
+    }
+
+    return Array.from(byPart.entries())
+        .sort(([partA], [partB]) => partA - partB)
+        .map(([part, card]) => ({ part, path: card.path, title: card.candidateTitle }));
+}
+
+function mapEpisodeAcrossParts(episode, partCounts) {
+    let remaining = Math.max(1, Number(episode) || 1);
+    for (let partIndex = 0; partIndex < partCounts.length; partIndex++) {
+        const count = Math.max(0, Number(partCounts[partIndex]) || 0);
+        if (remaining <= count) return { partIndex, episode: remaining };
+        remaining -= count;
+    }
+    return null;
 }
 
 function findTagByAttribute(html, attribute, value) {
@@ -151,18 +194,10 @@ function findServerLinkId(serverHtml, isDub) {
     throw new Error(`No ${desiredType} server was found on AniChi (available: ${available})`);
 }
 
-async function scrapeAnichiHttp(title, episodeStr, seasonStr, isDub) {
-    const season = Math.max(1, parseInt(seasonStr, 10) || 1);
-    const episode = Math.max(1, parseInt(episodeStr, 10) || 1);
-    const searchTitle = season > 1 ? `${title} Season ${season}` : title;
-    const filterUrl = `${ANICHI_ORIGIN}/filter?keyword=${encodeURIComponent(searchTitle)}`;
-
-    const searchHtml = await requestAnichi(filterUrl);
-    const animePath = findAnimePath(searchHtml, searchTitle, season);
+async function loadEpisodeContext(animePath, referer) {
     const watchPath = animePath.replace('/anime/', '/watch/');
-    const watchUrl = `${ANICHI_ORIGIN}${watchPath}/ep-${episode}`;
-    const watchHtml = await requestAnichi(watchUrl, filterUrl);
-
+    const watchUrl = `${ANICHI_ORIGIN}${watchPath}/ep-1`;
+    const watchHtml = await requestAnichi(watchUrl, referer);
     const watchTag = (watchHtml.match(/<[^>]+\bid=["']watch-main["'][^>]*>/i) || [])[0];
     const mangaId = getAttribute(watchTag, 'data-id');
     if (!/^\d+$/.test(mangaId)) throw new Error('AniChi anime id was not found');
@@ -172,8 +207,42 @@ async function scrapeAnichiHttp(title, episodeStr, seasonStr, isDub) {
         watchUrl
     );
     const episodesHtml = parseJsonResult(episodesBody, 'AniChi episode list');
-    const episodeTag = findTagByAttribute(episodesHtml, 'data-num', episode);
-    const serverIds = getAttribute(episodeTag, 'data-ids');
+    const episodeMap = new Map();
+    const episodeTags = String(episodesHtml).match(/<[^>]*\bdata-num\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)[^>]*>/gi) || [];
+    for (const tag of episodeTags) {
+        const number = Number(getAttribute(tag, 'data-num'));
+        const serverIds = getAttribute(tag, 'data-ids');
+        if (Number.isInteger(number) && number > 0 && serverIds) episodeMap.set(number, serverIds);
+    }
+    const episodeCount = episodeMap.size ? Math.max(...episodeMap.keys()) : 0;
+    if (!episodeCount) throw new Error('AniChi episode list was empty');
+    return { watchUrl, episodeMap, episodeCount };
+}
+
+async function scrapeAnichiHttp(title, episodeStr, seasonStr, isDub) {
+    const season = Math.max(1, parseInt(seasonStr, 10) || 1);
+    const episode = Math.max(1, parseInt(episodeStr, 10) || 1);
+    const searchTitle = season > 1 ? `${title} Season ${season}` : title;
+    const filterUrl = `${ANICHI_ORIGIN}/filter?keyword=${encodeURIComponent(searchTitle)}`;
+
+    const searchHtml = await requestAnichi(filterUrl);
+    const primaryPath = findAnimePath(searchHtml, searchTitle, season);
+    const seasonParts = findSeasonPartPaths(searchHtml, searchTitle, season);
+    if (!seasonParts.length) seasonParts.push({ part: 1, path: primaryPath, title: searchTitle });
+    if (!seasonParts.some(part => part.path === primaryPath)) {
+        seasonParts.unshift({ part: 1, path: primaryPath, title: searchTitle });
+    }
+
+    const contexts = await Promise.all(seasonParts.map(part => loadEpisodeContext(part.path, filterUrl)));
+    const mappedEpisode = mapEpisodeAcrossParts(episode, contexts.map(context => context.episodeCount));
+    if (!mappedEpisode) {
+        const available = contexts.reduce((total, context) => total + context.episodeCount, 0);
+        throw new Error(`Episode ${episode} was not found on AniChi (available: ${available})`);
+    }
+
+    const context = contexts[mappedEpisode.partIndex];
+    const watchUrl = context.watchUrl;
+    const serverIds = context.episodeMap.get(mappedEpisode.episode);
     if (!serverIds) throw new Error(`Episode ${episode} was not found on AniChi`);
 
     const serverListBody = await requestAnichi(
@@ -467,7 +536,9 @@ if (require.main === module) {
 module.exports = {
     extractResolvedUrl,
     findAnimePath,
+    findSeasonPartPaths,
     findServerLinkId,
+    mapEpisodeAcrossParts,
     scrapeAnichi,
     scrapeAnichiBrowser,
     scrapeAnichiHttp
