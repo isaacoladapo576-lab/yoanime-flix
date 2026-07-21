@@ -48,23 +48,6 @@
                         name: 'Server 1 (Fast)',
                         url: `https://tryembed.us.cc/embed/anime/${anilistId}/${episode}/${audio}`,
                         supportsDub: true
-                    },
-                    {
-                        id: 'vidsrc-anime',
-                        name: 'Server 2 (Anichi)',
-                        isProxy: true,
-                        url: async () => {
-                            try {
-                                const reqId = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-                                const qUrl = `/api/scrape/anichi?title=${encodeURIComponent(input.title || '')}&ep=${episode}&season=${season}&isDub=${audio === 'dub'}&reqId=${reqId}`;
-                                const r = await fetch(qUrl, { cache: 'no-store' });
-                                const data = await r.json();
-                                if (data && data.url) return { iframe: true, url: data.url };
-                            } catch(e) {}
-                            return false;
-                        },
-                        supportsDub: true,
-                        noHealthCheck: true
                     }
                 );
             }
@@ -72,19 +55,19 @@
                 sources.push(
                     {
                         id: 'autoembed',
-                        name: 'Server 3 (AutoEmbed)',
+                        name: 'Server 2 (AutoEmbed)',
                         url: `https://autoembed.co/tv/tmdb/${tmdbId}-${season}-${episode}`,
                         supportsDub: false
                     },
                     {
                         id: 'vidsrc-in',
-                        name: 'Server 4 (VidSrc)',
+                        name: 'Server 3 (VidSrc)',
                         url: `https://vidsrc.in/embed/tv/${tmdbId}/${season}/${episode}`,
                         supportsDub: false
                     },
                     {
                         id: 'vidlink-anime',
-                        name: 'Server 5 (Backup)',
+                        name: 'Server 4 (Backup)',
                         url: `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}`,
                         supportsDub: false
                     }
