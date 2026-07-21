@@ -619,10 +619,22 @@ async function _loadVideoInternal() {
             iframe.onload = null;
             iframe.onerror = null;
 
+            if (window._currentFallbackInterval) clearInterval(window._currentFallbackInterval);
+            const spinnerEl = document.getElementById('loading-spinner');
+            if (spinnerEl) spinnerEl.textContent = '30';
+            let timeLeft = 30;
+            window._currentFallbackInterval = setInterval(() => {
+                timeLeft--;
+                if (spinnerEl && timeLeft > 0) spinnerEl.textContent = timeLeft;
+                if (timeLeft <= 0) clearInterval(window._currentFallbackInterval);
+            }, 1000);
+
             let settled = false;
             const fallbackTimeout = setTimeout(() => {
                 if (loadId === playbackLoadId && !settled && !isStreaming) {
                     settled = true;
+                    clearInterval(window._currentFallbackInterval);
+                    if (spinnerEl) spinnerEl.textContent = '';
                     console.warn(`[Player] ${srv.name} timed out after 30s, trying next…`);
                     tryServer(currentServerIndex + 1);
                 }
@@ -632,6 +644,8 @@ async function _loadVideoInternal() {
                 if (loadId !== playbackLoadId || settled) return;
                 settled = true;
                 clearTimeout(fallbackTimeout);
+                clearInterval(window._currentFallbackInterval);
+                if (spinnerEl) spinnerEl.textContent = '';
                 console.warn(`[Player] ${srv.name} errored, trying next…`);
                 tryServer(currentServerIndex + 1);
             };
@@ -640,6 +654,8 @@ async function _loadVideoInternal() {
                 if (loadId !== playbackLoadId || settled) return;
                 settled = true;
                 clearTimeout(fallbackTimeout);
+                clearInterval(window._currentFallbackInterval);
+                if (spinnerEl) spinnerEl.textContent = '';
                 loading.classList.add('hidden');
                 iframe.style.display = 'block';
                 isStreaming = true;

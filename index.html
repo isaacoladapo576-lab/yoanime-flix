@@ -201,7 +201,7 @@
     <div style="position:relative; flex:1; width:100%; height:100%; background:#000;">
         <div id="player-loading" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:white; z-index:1;">
             <div style="text-align:center;">
-                <div class="skeleton" style="width:40px; height:40px; border-radius:50%; margin:0 auto 10px;"></div>
+                <div id="loading-spinner" class="skeleton" style="width:40px; height:40px; border-radius:50%; margin:0 auto 10px; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:bold; color:var(--text-primary);"></div>
                 <div id="loading-text" style="color:var(--text-secondary); font-size:0.875rem;">Loading stream...</div>
             </div>
         </div>
@@ -216,7 +216,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-<script src="stream-sources.js?v=3"></script>
-<script src="app.js?v=3"></script>
+<script src="stream-sources.js?v=4"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>
