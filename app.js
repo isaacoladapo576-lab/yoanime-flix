@@ -431,7 +431,9 @@ async function openPlayer(item) {
     currentSeason = 1;
     currentEp     = 1;
     serverIndex   = 0;
-    currentServerIndex = 0;
+    // AniChi is season-aware, so prefer it for anime instead of a provider
+    // that may reuse the Season 1 catalogue id for later seasons.
+    currentServerIndex = item.isAnime ? 1 : 0;
     serverSelectionLocked = false;
     isStreaming   = false;
 
@@ -605,17 +607,24 @@ async function _loadVideoInternal() {
     iframe.style.display = 'none';
     iframe.src = '';
     
-    // Resolve AniList ID once if anime
-    if (currentItem.isAnime && !currentItem.anilistId) {
+    // Resolve the AniList ID again when the season changes. AniList stores
+    // seasons as separate catalogue entries, so reusing Season 1's id can
+    // return the wrong or truncated video for Season 2+.
+    if (currentItem.isAnime && currentItem.anilistSeason !== currentSeason) {
+        currentItem.anilistId = null;
         try {
             const query = `query ($search: String) { Media(search: $search, type: ANIME) { id } }`;
+            const search = currentSeason > 1
+                ? `${currentItem.title} Season ${currentSeason}`
+                : currentItem.title;
             const res = await fetch('https://graphql.anilist.co', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query, variables: { search: currentItem.title } })
+                body: JSON.stringify({ query, variables: { search } })
             });
             const data = await res.json();
             currentItem.anilistId = data?.data?.Media?.id;
+            currentItem.anilistSeason = currentSeason;
         } catch (e) {
             console.warn('[Player] Anilist lookup failed:', e);
         }
@@ -810,6 +819,9 @@ function buildServerSelect(servers = getCurrentStreamServers()) {
             };
             opts.appendChild(div);
         });
+    }
+
+    if (!Number.isInteger(currentServerIndex) || currentServerIndex < 0 || currentServerIndex >= servers.length) {
         currentServerIndex = 0;
     }
     
