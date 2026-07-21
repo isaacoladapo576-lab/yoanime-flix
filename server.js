@@ -190,15 +190,17 @@ const server = http.createServer(async (req, res) => {
         try {
             const { scrapeAnichi } = require('./anichi_scraper.js');
             scrapeAnichi(title, ep, season, isDub).then(url => {
-                // Check if this request is still the latest
                 if (global._anichiLatestReqId[key] !== myReqId) {
                     console.log(`[Server] Dropping stale Anichi result for ${title} S${season} E${ep} (reqId=${myReqId}, latest=${global._anichiLatestReqId[key]})`);
-                    res.writeHead(204);
-                    res.end();
                     return;
                 }
-                res.writeHead(302, { 'Location': url });
-                res.end();
+                if (url) {
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ url }));
+                } else {
+                    res.writeHead(404, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: "Stream not found" }));
+                }
             }).catch(e => {
                 console.error("Anichi Scraper Error:", e.message);
                 res.writeHead(500, { 'Content-Type': 'text/plain' });
@@ -230,11 +232,11 @@ const server = http.createServer(async (req, res) => {
             const { scrapeDulo } = require('./dulo_scraper.js');
             scrapeDulo(id, s, ep).then(url => {
                 if (url) {
-                    res.writeHead(302, { 'Location': url });
-                    res.end();
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ url }));
                 } else {
-                    res.writeHead(404, { 'Content-Type': 'text/plain' });
-                    res.end("Stream not found");
+                    res.writeHead(404, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: "Stream not found" }));
                 }
             }).catch(e => {
                 console.error("Dulo Scraper Error:", e.message);

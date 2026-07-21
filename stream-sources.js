@@ -49,7 +49,17 @@
                     {
                         id: 'vidsrc-anime',
                         name: 'Server 2 (Anichi)',
-                        url: `/api/scrape/anichi?title=${encodeURIComponent(input.title || '')}&ep=${episode}&season=${season}&isDub=${audio === 'dub'}&reqId=${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                        isProxy: true,
+                        url: async () => {
+                            try {
+                                const reqId = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+                                const qUrl = `/api/scrape/anichi?title=${encodeURIComponent(input.title || '')}&ep=${episode}&season=${season}&isDub=${audio === 'dub'}&reqId=${reqId}`;
+                                const r = await fetch(qUrl);
+                                const data = await r.json();
+                                if (data && data.url) return { iframe: false, url: data.url, type: 'hls' };
+                            } catch(e) {}
+                            return false;
+                        },
                         supportsDub: true
                     }
                 );
@@ -78,7 +88,19 @@
             }
         } else if (type === 'movie' && tmdbId) {
             sources = [
-                { id: 'dulo', name: 'Server 1 (Dulo)', url: `https://dulo.tv/movie/${tmdbId}` },
+                {
+                    id: 'dulo',
+                    name: 'Server 1 (Dulo)',
+                    isProxy: true,
+                    url: async () => {
+                        try {
+                            const r = await fetch(`/api/scrape/dulo?id=${tmdbId}`);
+                            const data = await r.json();
+                            if (data && data.url) return { iframe: false, url: data.url, type: 'hls' };
+                        } catch(e) {}
+                        return false;
+                    }
+                },
                 { id: 'cinevaro', name: 'Server 2 (HD)', url: `https://cinevaro.app/embed/movie/${tmdbId}` },
                 { id: 'smashystream', name: 'Server 3 (HD)', url: `https://embed.smashystream.com/playere.php?tmdb=${tmdbId}` },
                 { id: 'vidsrc-me', name: 'Server 4 (Backup)', url: `https://vidsrc.me/embed/movie?tmdb=${tmdbId}` },
@@ -87,7 +109,19 @@
             ];
         } else if (type === 'tv' && tmdbId) {
             sources = [
-                { id: 'dulo', name: 'Server 1 (Dulo)', url: `https://dulo.tv/show/${tmdbId}-${season}-${episode}` },
+                {
+                    id: 'dulo',
+                    name: 'Server 1 (Dulo)',
+                    isProxy: true,
+                    url: async () => {
+                        try {
+                            const r = await fetch(`/api/scrape/dulo?id=${tmdbId}&s=${season}&ep=${episode}`);
+                            const data = await r.json();
+                            if (data && data.url) return { iframe: false, url: data.url, type: 'hls' };
+                        } catch(e) {}
+                        return false;
+                    }
+                },
                 { id: 'cinevaro', name: 'Server 2 (HD)', url: `https://cinevaro.app/embed/tv/${tmdbId}/${season}/${episode}` },
                 { id: 'smashystream', name: 'Server 3 (HD)', url: `https://embed.smashystream.com/playere.php?tmdb=${tmdbId}&s=${season}&e=${episode}` },
                 { id: 'vidsrc-me', name: 'Server 4 (Backup)', url: `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}` },
