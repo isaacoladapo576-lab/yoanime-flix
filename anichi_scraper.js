@@ -1,6 +1,203 @@
-const { chromium } = require('playwright');
+const ANICHI_ORIGIN = 'https://anichi.to';
 
-async function scrapeAnichi(title, episodeStr, seasonStr, isDub) {
+function decodeHtml(value) {
+    return String(value || '')
+        .replace(/&amp;/gi, '&')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#(?:0*39|x0*27);/gi, "'")
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)));
+}
+
+function stripTags(value) {
+    return decodeHtml(String(value || '').replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
+}
+
+function getAttribute(tag, name) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = String(tag || '').match(new RegExp(`\\s${escaped}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i'));
+    return decodeHtml(match ? (match[1] ?? match[2] ?? match[3] ?? '') : '');
+}
+
+function normalizeTitle(value) {
+    return stripTags(value)
+        .toLowerCase()
+        .replace(/&/g, ' and ')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+async function requestAnichi(url, referer = `${ANICHI_ORIGIN}/home`) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+        const response = await fetch(url, {
+            signal: controller.signal,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36',
+                'Accept': 'application/json, text/html, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': referer,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        const body = await response.text();
+        if (!response.ok) throw new Error(`AniChi returned HTTP ${response.status}`);
+        return body;
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+function parseJsonResult(body, label) {
+    let data;
+    try {
+        data = JSON.parse(body);
+    } catch {
+        throw new Error(`${label} returned invalid JSON`);
+    }
+    if (Number(data.status || 200) !== 200 || data.result == null) {
+        throw new Error(`${label} did not return a usable result`);
+    }
+    return data.result;
+}
+
+function scoreAnimeCandidate(candidateTitle, requestedTitle, season) {
+    const candidate = normalizeTitle(candidateTitle);
+    const requested = normalizeTitle(requestedTitle);
+    const requestedBase = requested.replace(/\b(?:season|part)\s+\d+\b/g, '').trim();
+    if (!candidate || !requestedBase) return -1000;
+
+    let score = 0;
+    if (candidate === requested) score += 100;
+    if (candidate.includes(requested)) score += 45;
+    if (candidate.includes(requestedBase)) score += 30;
+
+    const words = requestedBase.split(' ').filter(word => word.length > 2);
+    score += words.filter(word => candidate.includes(word)).length * 3;
+
+    const explicitLaterSeason = /\b(?:season|part)\s+[2-9]\d*\b|\b(?:2nd|3rd|[4-9]th)\s+season\b/.test(candidate);
+    if (season === 1) {
+        score += explicitLaterSeason ? -60 : 25;
+    } else {
+        const seasonPattern = new RegExp(`\\b(?:season\\s+${season}|${season}(?:st|nd|rd|th)\\s+season)\\b`);
+        score += seasonPattern.test(candidate) ? 60 : -30;
+    }
+    return score;
+}
+
+function findAnimePath(html, title, season) {
+    const cards = [];
+    const regex = /<a\b([^>]*href\s*=\s*(?:"[^"]*\/anime\/[^"]+"|'[^']*\/anime\/[^']+'|[^\s>]*\/anime\/[^\s>]+)[^>]*)>([\s\S]*?)<\/a>/gi;
+    let match;
+    while ((match = regex.exec(html))) {
+        const openTag = `<a ${match[1]}>`;
+        const href = getAttribute(openTag, 'href');
+        if (!href || !href.includes('/anime/')) continue;
+        const imageTag = (match[2].match(/<img\b[^>]*>/i) || [])[0] || '';
+        const titleTag = (match[2].match(/<[^>]+\bdata-en\s*=\s*(?:"[^"]*"|'[^']*')[^>]*>/i) || [])[0] || '';
+        const candidateTitle = getAttribute(titleTag, 'data-en') || getAttribute(imageTag, 'alt') || stripTags(match[2]);
+        cards.push({ href, candidateTitle, score: scoreAnimeCandidate(candidateTitle, title, season) });
+    }
+    cards.sort((a, b) => b.score - a.score);
+    if (!cards.length || cards[0].score < 10) throw new Error('Anime not found on AniChi');
+    return new URL(cards[0].href, ANICHI_ORIGIN).pathname;
+}
+
+function findTagByAttribute(html, attribute, value) {
+    const tags = String(html || '').match(/<[^>]+>/g) || [];
+    return tags.find(tag => getAttribute(tag, attribute) === String(value)) || null;
+}
+
+function extractResolvedUrl(value) {
+    if (value == null) return null;
+    if (typeof value === 'object') {
+        for (const key of ['url', 'link', 'src', 'file', 'result', 'data']) {
+            const found = extractResolvedUrl(value[key]);
+            if (found) return found;
+        }
+        return null;
+    }
+
+    let text = decodeHtml(String(value)).replace(/\\\//g, '/').trim();
+    if (!text) return null;
+    if (text[0] === '{' || text[0] === '[') {
+        try {
+            const found = extractResolvedUrl(JSON.parse(text));
+            if (found) return found;
+        } catch (_) {}
+    }
+
+    const srcMatch = text.match(/(?:src|url|link)\s*=\s*["'](https?:\/\/[^"']+)/i);
+    if (srcMatch) return srcMatch[1];
+    const urlMatch = text.match(/https?:\/\/[^\s"'<>\\]+/i);
+    return urlMatch ? urlMatch[0] : null;
+}
+
+function findServerLinkId(serverHtml, isDub) {
+    const desiredType = isDub ? 'dub' : 'sub';
+    const findServerGroup = type => String(serverHtml).match(
+        new RegExp(`<div\\b[^>]*data-type=["']${type}["'][^>]*>([\\s\\S]*?)<\\/div>`, 'i')
+    );
+    const serverGroup = findServerGroup(desiredType) || (!isDub ? findServerGroup('hsub') : null);
+    const serverTag = serverGroup ? (serverGroup[1].match(/<[^>]*data-link-id[^>]*>/i) || [])[0] : null;
+    const linkId = getAttribute(serverTag, 'data-link-id');
+    if (linkId) return linkId;
+
+    const available = Array.from(String(serverHtml).matchAll(/data-type=["']([^"']+)["']/gi), match => match[1]).join(', ') || 'none';
+    throw new Error(`No ${desiredType} server was found on AniChi (available: ${available})`);
+}
+
+async function scrapeAnichiHttp(title, episodeStr, seasonStr, isDub) {
+    const season = Math.max(1, parseInt(seasonStr, 10) || 1);
+    const episode = Math.max(1, parseInt(episodeStr, 10) || 1);
+    const searchTitle = season > 1 ? `${title} Season ${season}` : title;
+    const filterUrl = `${ANICHI_ORIGIN}/filter?keyword=${encodeURIComponent(searchTitle)}`;
+
+    const searchHtml = await requestAnichi(filterUrl);
+    const animePath = findAnimePath(searchHtml, searchTitle, season);
+    const watchPath = animePath.replace('/anime/', '/watch/');
+    const watchUrl = `${ANICHI_ORIGIN}${watchPath}/ep-${episode}`;
+    const watchHtml = await requestAnichi(watchUrl, filterUrl);
+
+    const watchTag = (watchHtml.match(/<[^>]+\bid=["']watch-main["'][^>]*>/i) || [])[0];
+    const mangaId = getAttribute(watchTag, 'data-id');
+    if (!/^\d+$/.test(mangaId)) throw new Error('AniChi anime id was not found');
+
+    const episodesBody = await requestAnichi(
+        `${ANICHI_ORIGIN}/ajax/episode/list/${mangaId}?style=&vrf=${mangaId}`,
+        watchUrl
+    );
+    const episodesHtml = parseJsonResult(episodesBody, 'AniChi episode list');
+    const episodeTag = findTagByAttribute(episodesHtml, 'data-num', episode);
+    const serverIds = getAttribute(episodeTag, 'data-ids');
+    if (!serverIds) throw new Error(`Episode ${episode} was not found on AniChi`);
+
+    const serverListBody = await requestAnichi(
+        `${ANICHI_ORIGIN}/ajax/server/list?servers=${encodeURIComponent(serverIds)}`,
+        watchUrl
+    );
+    const serverHtml = parseJsonResult(serverListBody, 'AniChi server list');
+    const linkId = findServerLinkId(serverHtml, isDub);
+
+    const resolveBody = await requestAnichi(
+        `${ANICHI_ORIGIN}/ajax/server?get=${encodeURIComponent(linkId)}`,
+        watchUrl
+    );
+    let resolveData = resolveBody;
+    try { resolveData = JSON.parse(resolveBody); } catch (_) {}
+    const resolvedUrl = extractResolvedUrl(resolveData);
+    if (!resolvedUrl) throw new Error('AniChi server did not return an embed URL');
+    return resolvedUrl;
+}
+
+async function scrapeAnichiBrowser(title, episodeStr, seasonStr, isDub) {
+    // Keep Playwright out of lightweight/serverless bundles. It is only needed
+    // if AniChi's direct HTTP endpoints stop working.
+    const { chromium } = require('play' + 'wright');
     const season = parseInt(seasonStr, 10) || 1;
     let searchTitle = title;
     // Anichi splits seasons into separate anime entries
@@ -246,18 +443,32 @@ async function scrapeAnichi(title, episodeStr, seasonStr, isDub) {
     }
 }
 
+async function scrapeAnichi(title, episodeStr, seasonStr, isDub) {
+    // Production uses the lightweight HTTP resolver. Do not fall back to a
+    // browser process: hosted instances may intentionally omit Playwright.
+    return scrapeAnichiHttp(title, episodeStr, seasonStr, isDub);
+}
+
 if (require.main === module) {
     const args = process.argv.slice(2);
     const title = args[0] || 'Jujutsu Kaisen';
     const ep = args[1] || '1';
-    const isDub = args[2] === 'true';
+    const season = args[2] || '1';
+    const isDub = args[3] === 'true';
     
-    console.log(`Scraping Anichi for: ${title} Ep ${ep} (Dub: ${isDub})`);
-    scrapeAnichi(title, ep, isDub).then(url => {
+    console.log(`Scraping Anichi for: ${title} S${season} E${ep} (Dub: ${isDub})`);
+    scrapeAnichi(title, ep, season, isDub).then(url => {
         console.log("SUCCESS:", url);
     }).catch(e => {
         console.error("FAILED:", e.message);
     });
 }
 
-module.exports = { scrapeAnichi };
+module.exports = {
+    extractResolvedUrl,
+    findAnimePath,
+    findServerLinkId,
+    scrapeAnichi,
+    scrapeAnichiBrowser,
+    scrapeAnichiHttp
+};

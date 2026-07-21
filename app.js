@@ -431,6 +431,8 @@ async function openPlayer(item) {
     currentSeason = 1;
     currentEp     = 1;
     serverIndex   = 0;
+    currentServerIndex = 0;
+    serverSelectionLocked = false;
     isStreaming   = false;
 
     document.getElementById('player-page').style.display = 'flex';
@@ -468,10 +470,51 @@ function toggleDub() {
     loadVideo();
 }
 
+async function resolveAniChiStream(item, season, episode) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45000);
+    const productionApiOrigin = window.ANICHI_API_ORIGIN || 'https://yoanime-flix.onrender.com';
+    const params = new URLSearchParams({
+        title: item.title,
+        season: String(season),
+        ep: String(episode),
+        isDub: String(isDub),
+        reqId: `${playbackLoadId}-${Date.now()}`
+    });
+    const apiPath = `/api/scrape/anichi?${params}`;
+    const candidates = [apiPath];
+    if (window.location.origin !== productionApiOrigin) {
+        candidates.push(`${productionApiOrigin}${apiPath}`);
+    }
+
+    try {
+        let lastError = new Error('AniChi API is unreachable');
+        for (const apiUrl of candidates) {
+            try {
+                const response = await fetch(apiUrl, {
+                    cache: 'no-store',
+                    signal: controller.signal
+                });
+                const data = await response.json().catch(() => ({}));
+                if (response.ok && data.url) {
+                    return { url: data.url, iframe: true };
+                }
+                lastError = new Error(data.error || `AniChi returned HTTP ${response.status}`);
+            } catch (error) {
+                if (error.name === 'AbortError') throw error;
+                lastError = error;
+            }
+        }
+        throw lastError;
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
 function getCurrentStreamServers() {
     if (!window.StreamSources) return [];
     const type = currentItem.isAnime ? 'anime' : currentItem.type;
-    return window.StreamSources.buildStreamSources({
+    const servers = window.StreamSources.buildStreamSources({
         type,
         title: currentItem.title,
         tmdbId: currentItem.tmdbId,
@@ -480,6 +523,26 @@ function getCurrentStreamServers() {
         episode: currentEp,
         audio: isDub ? 'dub' : 'sub'
     }).map(source => ({ ...source, url: () => source.url }));
+
+    if (currentItem.isAnime) {
+        servers.splice(Math.min(1, servers.length), 0, {
+            id: 'anichi',
+            name: 'Server 2 (AniChi)',
+            supportsDub: true,
+            iframe: true,
+            isProxy: true,
+            url: resolveAniChiStream
+        });
+
+        return servers.map((server, index) => ({
+            ...server,
+            name: server.id === 'anichi'
+                ? `Server ${index + 1} (AniChi)`
+                : server.name.replace(/^Server \d+/, `Server ${index + 1}`)
+        }));
+    }
+
+    return servers;
 }
 
 async function checkStreamEndpoint(url) {
@@ -503,6 +566,7 @@ async function checkStreamEndpoint(url) {
 }
 
 let currentServerIndex = 0;
+let serverSelectionLocked = false;
 let _loadVideoDebounceTimer = null;
 
 function loadVideo() {
@@ -569,8 +633,17 @@ async function _loadVideoInternal() {
 
     // ── Fallback cascade ──────────────────────────────────────
     const startIndex = currentServerIndex;
+    const allowFallback = !serverSelectionLocked;
     let attempts = 0;
-    const maxAttempts = servers.length;
+    const maxAttempts = allowFallback ? servers.length : 1;
+
+    function handleServerFailure(srv, message) {
+        if (!allowFallback) {
+            showPlayerError(`${srv.name} failed: ${message}. Please choose another server or try again.`);
+            return;
+        }
+        tryServer(currentServerIndex + 1);
+    }
 
     async function tryServer(index) {
         if (loadId !== playbackLoadId || !currentItem) return;
@@ -640,7 +713,7 @@ async function _loadVideoInternal() {
                     clearInterval(window._currentFallbackInterval);
                     if (spinnerEl) spinnerEl.textContent = '';
                     console.warn(`[Player] ${srv.name} timed out after 30s, trying next…`);
-                    tryServer(currentServerIndex + 1);
+                    handleServerFailure(srv, 'the player timed out');
                 }
             }, 30000);
 
@@ -651,7 +724,7 @@ async function _loadVideoInternal() {
                 clearInterval(window._currentFallbackInterval);
                 if (spinnerEl) spinnerEl.textContent = '';
                 console.warn(`[Player] ${srv.name} errored, trying next…`);
-                tryServer(currentServerIndex + 1);
+                handleServerFailure(srv, 'the embedded player could not load');
             };
 
             iframe.onload = () => {
@@ -671,7 +744,7 @@ async function _loadVideoInternal() {
         } catch (err) {
             if (loadId !== playbackLoadId) return;
             console.warn(`[Player] ${srv.name} threw: ${err.message}, trying next…`);
-            tryServer(currentServerIndex + 1);
+            handleServerFailure(srv, err.message);
         }
     }
 
@@ -779,6 +852,7 @@ window.setDub = function(dub) {
 
 window.changeServer = function(index) {
     currentServerIndex = parseInt(index);
+    serverSelectionLocked = true;
     loadVideo();
 };
 
