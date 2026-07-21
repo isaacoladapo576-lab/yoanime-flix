@@ -49,7 +49,7 @@ async function scrapeDulo(tmdbId, season = null, episode = null) {
         
         if (playBtn) {
             console.log(`[Dulo] Found play button, clicking...`);
-            await playBtn.click();
+            await playBtn.click({ force: true });
             
             // Wait up to 15 seconds for a stream to be intercepted
             let waitTime = 0;

@@ -236,40 +236,7 @@ async function scrapeAnichi(title, episodeStr, seasonStr, isDub) {
         }, isDub);
         
         if (embedUrl) {
-            console.log(`[Anichi] Found embed URL: ${embedUrl}. Navigating to intercept stream...`);
-            let streamUrl = null;
-            
-            // Listen for m3u8 or mp4 requests
-            page.on('request', req => {
-                const reqUrl = req.url();
-                if ((reqUrl.includes('.m3u8') || reqUrl.includes('.mp4')) && !reqUrl.includes('trailer')) {
-                    console.log(`[Anichi] Intercepted raw stream: ${reqUrl}`);
-                    streamUrl = reqUrl;
-                }
-            });
-            
-            // Navigate to the embed frame with correct referer
-            await page.goto(embedUrl, { referer: 'https://anichi.to/', waitUntil: 'domcontentloaded' });
-            
-            let waitTime = 0;
-            while (!streamUrl && waitTime < 15000) {
-                await page.waitForTimeout(500);
-                waitTime += 500;
-                
-                // Try clicking any play buttons every 2 seconds if stream hasn't loaded
-                if (waitTime % 2000 === 0) {
-                    try {
-                        const playBtn = await page.$('.play-button, .jw-video, video, [aria-label*="play" i]');
-                        if (playBtn) await playBtn.click();
-                    } catch(e) {}
-                }
-            }
-            
-            if (streamUrl) {
-                return streamUrl;
-            } else {
-                throw new Error("Timeout waiting for m3u8 stream from embed");
-            }
+            return embedUrl;
         } else {
             throw new Error("Could not extract embed URL from Anichi");
         }

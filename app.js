@@ -598,6 +598,7 @@ async function _loadVideoInternal() {
 
             if (srv.isProxy) {
                 const result = await srv.url(currentItem, currentSeason, currentEp);
+                if (!result) throw new Error("Scraper returned no stream");
                 if (result.iframe === false) {
                     playRawStream(result.url, result.type || 'mp4');
                     return;
@@ -882,56 +883,12 @@ function prevEpisode() {
 // ============================================
 // Live TMDB Search
 // ============================================
-let searchTimeout = null;
-
-async function handleSearch(val) {
-    clearTimeout(searchTimeout);
-    const clear   = document.getElementById('search-clear');
-    const results = document.getElementById('search-results');
-    clear.style.display = val ? 'block' : 'none';
-    if (!val.trim()) { results.classList.remove('open'); results.innerHTML = ''; return; }
-
-    searchTimeout = setTimeout(async () => {
-        results.innerHTML = '<div class="search-no-results">Searching...</div>';
-        results.classList.add('open');
-        
-        const q = encodeURIComponent(val.trim());
-        const data = await apiFetch(`/search/multi?query=${q}`);
-        
-        // Filter out people, keep movies/tv, ensure they have images
-        const found = data.filter(x => (x.media_type === 'movie' || x.media_type === 'tv') && x.poster_path)
-                          .map(x => normalizeItem(x))
-                          .slice(0, 20); // Show up to 20 results for scrolling
-
-        results.innerHTML = found.length === 0
-            ? '<div class="search-no-results">No results found</div>'
-            : found.map(item => `
-                <div class="search-result-item" onclick="openPlayerById('${item.id}'); clearSearch();">
-                    ${item.poster
-                        ? `<img class="search-thumb" src="${item.poster}" alt="${escapeHtml(item.title)}" onerror="this.style.display='none'">`
-                        : ''}
-                    <div class="search-info">
-                        <div class="s-title">${escapeHtml(item.title)}</div>
-                        <div class="s-meta">${item.isAnime?'⚔️ Anime':item.type==='movie'?'🎬 Movie':'📺 Show'} · ${item.year}</div>
-                    </div>
-                </div>`).join('');
-    }, 500);
-}
-
-function clearSearch() {
-    const input = document.getElementById('search-input');
-    const clear = document.getElementById('search-clear');
-    const res   = document.getElementById('search-results');
-    input.value = '';
-    clear.style.display = 'none';
-    res.classList.remove('open');
-    res.innerHTML = '';
-}
+// Duplicate handleSearch removed
 
 document.addEventListener('click', e => {
     if (!e.target.closest('.search-wrap')) {
         const r = document.getElementById('search-overlay');
-        if (r) r.classList.remove('open');
+        if (r) r.classList.remove('active');
     }
     if (!e.target.closest('.custom-dropdown')) {
         const drop = document.getElementById('server-dropdown');
@@ -945,12 +902,12 @@ window.handleSearch = function(query) {
     const overlay = document.getElementById('search-overlay');
     
     if (!query.trim()) {
-        overlay.classList.remove('open');
+        overlay.classList.remove('active');
         overlay.innerHTML = '';
         return;
     }
     
-    overlay.classList.add('open');
+    overlay.classList.add('active');
     overlay.innerHTML = '<div style="padding: 20px; text-align: center; color: white;">Searching...</div>';
     
     _searchTimer = setTimeout(async () => {

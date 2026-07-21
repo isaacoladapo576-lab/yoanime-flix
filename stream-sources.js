@@ -54,9 +54,9 @@
                             try {
                                 const reqId = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
                                 const qUrl = `/api/scrape/anichi?title=${encodeURIComponent(input.title || '')}&ep=${episode}&season=${season}&isDub=${audio === 'dub'}&reqId=${reqId}`;
-                                const r = await fetch(qUrl);
+                                const r = await fetch(qUrl, { cache: 'no-store' });
                                 const data = await r.json();
-                                if (data && data.url) return { iframe: false, url: data.url, type: 'hls' };
+                                if (data && data.url) return { iframe: true, url: data.url };
                             } catch(e) {}
                             return false;
                         },
@@ -94,7 +94,7 @@
                     isProxy: true,
                     url: async () => {
                         try {
-                            const r = await fetch(`/api/scrape/dulo?id=${tmdbId}`);
+                            const r = await fetch(`/api/scrape/dulo?id=${tmdbId}`, { cache: 'no-store' });
                             const data = await r.json();
                             if (data && data.url) return { iframe: false, url: data.url, type: 'hls' };
                         } catch(e) {}
@@ -115,7 +115,7 @@
                     isProxy: true,
                     url: async () => {
                         try {
-                            const r = await fetch(`/api/scrape/dulo?id=${tmdbId}&s=${season}&ep=${episode}`);
+                            const r = await fetch(`/api/scrape/dulo?id=${tmdbId}&s=${season}&ep=${episode}`, { cache: 'no-store' });
                             const data = await r.json();
                             if (data && data.url) return { iframe: false, url: data.url, type: 'hls' };
                         } catch(e) {}
