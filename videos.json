@@ -1,0 +1,50 @@
+[
+  {
+    "id": "vid_1784494859353",
+    "title": "Let's go KAIKIGUMI",
+    "streamUrl": "/streams/vid_1784494859353.mp4",
+    "tmdbId": "302824",
+    "type": "anime",
+    "season": 1,
+    "episode": 1,
+    "poster": "https://image.tmdb.org/t/p/w500/7Hr1zgpzUWdQ6EtE9sDrx7IRk7Y.jpg",
+    "source": "upload-mp4",
+    "addedAt": "2026-07-19T21:00:59.397Z"
+  },
+  {
+    "id": "vid_seven_deadly_sins_test",
+    "title": "The Seven Deadly Sins: Four Knights of the Apocalypse",
+    "streamUrl": "/streams/seven_deadly_sins.mp4",
+    "type": "anime",
+    "tmdbId": "196950",
+    "anilistId": "143085",
+    "season": 1,
+    "episode": 1,
+    "source": "upload-mp4",
+    "addedAt": "2026-07-20T08:00:00.000Z"
+  },
+  {
+    "id": "vid_1784533038933",
+    "title": "Witch Hat Atelier",
+    "streamUrl": "/streams/vid_1784533038933.mp4",
+    "type": "anime",
+    "tmdbId": "",
+    "anilistId": "147105",
+    "season": 1,
+    "episode": 1,
+    "source": "upload-mp4",
+    "addedAt": "2026-07-20T07:37:20.847Z"
+  },
+  {
+    "id": "vid_1784533098888",
+    "title": "Witch Hat Atelier",
+    "streamUrl": "/streams/vid_1784533098888.mp4",
+    "type": "anime",
+    "tmdbId": "",
+    "anilistId": "147105",
+    "season": 1,
+    "episode": 1,
+    "source": "upload-mp4",
+    "addedAt": "2026-07-20T07:38:19.185Z"
+  }
+]

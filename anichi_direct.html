@@ -1,0 +1,190 @@
+<!DOCTYPE html><html lang="en"><head>
+    <meta charset="utf-8">    <title>404 · Page not found · Anichi</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow">
+    <link rel="icon" href="https://anichi.to/anichi/images/favicon.png?v=1" type="image/png" sizes="32x32">
+<link rel="shortcut icon" href="https://anichi.to/anichi/images/favicon.png?v=1" type="image/png">
+<link rel="apple-touch-icon" href="https://anichi.to/anichi/images/favicon.png?v=1">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin="">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://anichi.to/kuanime/css/main_site.css?v=4.41">    <style>
+        .page-error {
+            min-height: 100vh;
+            margin: 0;
+            color: #e8eef4;
+            font-family: "Geist", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+            background:
+                radial-gradient(900px 420px at 14% -8%, hsl(172 66% 40% / .14), transparent 55%),
+                radial-gradient(720px 400px at 92% 8%, hsl(210 55% 40% / .10), transparent 52%),
+                radial-gradient(600px 320px at 50% 100%, hsl(172 40% 30% / .08), transparent 55%),
+                #0b0f14;
+        }
+        .ku-error {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 20px 16px 28px;
+        }
+        .ku-error__top {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 12px;
+        }
+        .ku-error__brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            color: inherit;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 18px;
+        }
+        .ku-error__brand img { max-height: 36px; width: auto; display: block; }
+        .ku-error__main {
+            flex: 1;
+            display: grid;
+            place-items: center;
+            padding: 8px 0 20px;
+        }
+        .ku-error__stage {
+            width: min(560px, 100%);
+            text-align: center;
+        }
+        .ku-error__media {
+            position: relative;
+            margin: 0 auto 22px;
+            width: min(320px, 78vw);
+            aspect-ratio: 374 / 355;
+            border-radius: 18px;
+            overflow: hidden;
+            background: #121820;
+            border: 1px solid hsl(210 18% 22%);
+            box-shadow:
+                0 0 0 1px hsl(172 66% 50% / .08),
+                0 28px 60px hsl(0 0% 0% / .45);
+            animation: ku-error-in .55s ease both;
+        }
+        .ku-error__media img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .ku-error__code {
+            display: inline-block;
+            margin: 0 0 10px;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font: 700 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: #2dd4bf;
+            background: hsl(172 66% 50% / .12);
+            border: 1px solid hsl(172 66% 50% / .28);
+            animation: ku-error-in .55s .08s ease both;
+        }
+        .ku-error__title {
+            margin: 0 0 8px;
+            font-size: clamp(1.45rem, 3.4vw, 1.85rem);
+            font-weight: 750;
+            letter-spacing: -0.02em;
+            color: #f3f7fb;
+            animation: ku-error-in .55s .12s ease both;
+        }
+        .ku-error__text {
+            margin: 0 auto 22px;
+            max-width: 34ch;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #9aa8b6;
+            animation: ku-error-in .55s .16s ease both;
+        }
+        .ku-error__actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            animation: ku-error-in .55s .2s ease both;
+        }
+        .ku-error__btn {
+            appearance: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 11px 16px;
+            border-radius: 10px;
+            font: 700 14px/1.2 inherit;
+            text-decoration: none !important;
+            border: 1px solid transparent;
+            transition: filter .15s ease, background .15s ease, border-color .15s ease;
+        }
+        .ku-error__btn--primary {
+            background: #2dd4bf;
+            color: #071512 !important;
+        }
+        .ku-error__btn--primary:hover { filter: brightness(1.06); }
+        .ku-error__btn--ghost {
+            background: transparent;
+            color: #e8eef4 !important;
+            border-color: hsl(210 18% 28%);
+        }
+        .ku-error__btn--ghost:hover {
+            background: hsl(210 18% 16%);
+            border-color: hsl(172 66% 50% / .35);
+        }
+        .ku-error__foot {
+            margin-top: auto;
+            text-align: center;
+            color: #6b7785;
+            font-size: 12px;
+        }
+        .ku-error__foot a { color: #9aa8b6; text-decoration: none; }
+        .ku-error__foot a:hover { color: #2dd4bf; }
+        @keyframes ku-error-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: none; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .ku-error__media,
+            .ku-error__code,
+            .ku-error__title,
+            .ku-error__text,
+            .ku-error__actions { animation: none; }
+        }
+    </style>
+</head>
+<body class="page-error" data-page="error">
+    <div class="ku-error">
+        <header class="ku-error__top">
+            <a class="ku-error__brand" href="/home">
+                                    <img src="https://anichi.to/anichi/images/logo.png?v=1" alt="Anichi" class="brand-logo">
+                            </a>
+        </header>
+
+        <main class="ku-error__main">
+            <div class="ku-error__stage">
+    <div class="ku-error__media">
+        <img src="/kuanime/images/errors/frieren-crying.gif" alt="" width="374" height="355" decoding="async" fetchpriority="high">
+    </div>
+    <div class="ku-error__code">404</div>
+    <h1 class="ku-error__title">This page wandered off</h1>
+    <p class="ku-error__text">
+        We looked everywhere — even Frieren is crying. Head home or search for something to watch.    </p>
+    <div class="ku-error__actions">
+        <a class="ku-error__btn ku-error__btn--primary" href="/home">
+            <i class="fa-solid fa-house" aria-hidden="true"></i>
+            Back to home        </a>
+        <a class="ku-error__btn ku-error__btn--ghost" href="https://anichi.to/filter">
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            Browse anime        </a>
+    </div>
+</div>
+        </main>
+
+        <footer class="ku-error__foot">
+            <a href="/home">Anichi</a>
+            · Watch anime free online        </footer>
+    </div>
+
+
+</body></html>

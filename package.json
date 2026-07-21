@@ -1,0 +1,21 @@
+{
+  "name": "yoanime-flx",
+  "version": "1.0.0",
+  "description": "Premium ad-free streaming site with custom resolvers.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "build": "npx playwright install chromium --with-deps",
+    "test": "node --test stream-sources.test.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@consumet/extensions": "^1.8.8",
+    "aniwatch": "^2.27.9",
+    "localtunnel": "^2.0.2",
+    "multer": "^2.2.0",
+    "playwright": "^1.61.1"
+  }
+}

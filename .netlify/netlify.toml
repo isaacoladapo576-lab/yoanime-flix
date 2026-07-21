@@ -1,0 +1,32 @@
+headersOrigin = "config"
+plugins = []
+redirects = []
+
+[functions]
+
+[functions."*"]
+
+[build]
+publish = "C:\\Users\\olada\\.gemini\\antigravity\\scratch\\blondy-flix"
+publishOrigin = "config"
+
+[build.environment]
+
+[build.processing]
+
+[build.processing.css]
+
+[build.processing.html]
+
+[build.processing.images]
+
+[build.processing.js]
+
+[build.services]
+
+[[headers]]
+for = "/*"
+
+[headers.values]
+X-Frame-Options = "ALLOWALL"
+Access-Control-Allow-Origin = "*"

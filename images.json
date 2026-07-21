@@ -1,0 +1,126 @@
+{
+  "shangri-la-frontier": {
+    "poster": "https://image.tmdb.org/t/p/w500/nyhBueT07zQS7wWLYFDNO8LdO3N.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/8b5yXvmWSOl64Abk1wMYhzs4OnP.jpg"
+  },
+  "solo-leveling": {
+    "poster": "https://image.tmdb.org/t/p/w500/jhfZRo3krONzarJFot6WCw99uxH.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/dJJ9dH80HwWGERo5U59tw9JzYBQ.jpg"
+  },
+  "attack-on-titan": {
+    "poster": "https://image.tmdb.org/t/p/w500/hTP1DtLGFamjfu8WqjnuQdP1n4i.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/rqbCbjB19amtOtFQbb3K2lgm2zv.jpg"
+  },
+  "demon-slayer": {
+    "poster": "https://image.tmdb.org/t/p/w500/xUfRZu2mi8jH6SzQEJGP6tjBuYj.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/3GQKYh6Trm8pxd2AypovoYQf4Ay.jpg"
+  },
+  "fullmetal-alchemist": {
+    "poster": "https://image.tmdb.org/t/p/w500/5ZFUEOULaVml7pQuXxhpR2SmVUw.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/2UG177tWHy7xRmMKWJHB7nAUmKd.jpg"
+  },
+  "death-note": {
+    "poster": "https://image.tmdb.org/t/p/w500/tCZFfYTIwrR7n94J6G14Y4hAFU6.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/koBa94NxTaGe2FoDzlXMuJptsv0.jpg"
+  },
+  "one-piece": {
+    "poster": "https://image.tmdb.org/t/p/w500/dB4EDhre2dsC2kxYDavyKWqLQwi.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/2rmK7mnchw9Xr3XdiTFSxTTLXqv.jpg"
+  },
+  "naruto": {
+    "poster": "https://image.tmdb.org/t/p/w500/kV27j3Nz4d5z8u6mN3EJw9RiLg2.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/z0YhJvomqedHF85bplUJEotkN5l.jpg"
+  },
+  "jjk": {
+    "poster": "https://image.tmdb.org/t/p/w500/fHpKWq9ayzSk8nSwqRuaAUemRKh.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/lthkKBLe1rX6iThgVFg22O02sJw.jpg"
+  },
+  "chainsaw-man": {
+    "poster": "https://image.tmdb.org/t/p/w500/yVtx7Xn9UxNJqvG2BkvhCcmed9S.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/5DUMPBSnHOZsbBv81GFXZXvDpo6.jpg"
+  },
+  "vinland-saga": {
+    "poster": null,
+    "backdrop": null
+  },
+  "oshi-no-ko": {
+    "poster": "https://image.tmdb.org/t/p/w500/dqZENchTd7lp5zht7BdlqM7RBhD.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/rBOnrVlck7BIlGeWVlzYiZeg4l2.jpg"
+  },
+  "bleach-tybw": {
+    "poster": null,
+    "backdrop": null
+  },
+  "breaking-bad": {
+    "poster": "https://image.tmdb.org/t/p/w500/ztkUQFLlC19CCMYHW9o1zWhJRNq.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/tsRy63Mu5cu8etL1X7ZLyf7UP1M.jpg"
+  },
+  "stranger-things": {
+    "poster": "https://image.tmdb.org/t/p/w500/uOOtwVbSr4QDjAGIifLDwpb2Pdl.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/56v2KjBlU4XaOv9rVYEQypROD7P.jpg"
+  },
+  "the-office": {
+    "poster": "https://image.tmdb.org/t/p/w500/7DJKHzAi83BmQrWLrYYOqcoKfhR.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/mLyW3UTgi2lsMdtueYODcfAB9Ku.jpg"
+  },
+  "game-of-thrones": {
+    "poster": "https://image.tmdb.org/t/p/w500/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/2OMB0ynKlyIenMJWI2Dy9IWT4c.jpg"
+  },
+  "the-boys": {
+    "poster": "https://image.tmdb.org/t/p/w500/in1R2dDc421JxsoRWaIIAqVI2KE.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/n6vVs6z8obNbExdD3QHTr4Utu1Z.jpg"
+  },
+  "rick-and-morty": {
+    "poster": "https://image.tmdb.org/t/p/w500/owhkU6KRqdXoUQpjV8uyZGPtX58.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/5BDNWWHweQL0q1fmTv7gmRXfnl4.jpg"
+  },
+  "house-of-the-dragon": {
+    "poster": "https://image.tmdb.org/t/p/w500/7V0Ebks0GgpKvQ7QbLAIdX5dos4.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/577eXC8wFQT0eUrJcgznSiFPRmk.jpg"
+  },
+  "peaky-blinders": {
+    "poster": "https://image.tmdb.org/t/p/w500/dC7jkj2g1aU8sxKqM6D4g44xA6w.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/v8YFr8BbU9qsO8PYIulzTeM6Qk.jpg"
+  },
+  "fallout": {
+    "poster": "https://image.tmdb.org/t/p/w500/f2PVrphK0u81ES256lw3oAZuF3x.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/5vUux2vNUTqwCzb7tVcH18XnsF.jpg"
+  },
+  "two-and-a-half-men": {
+    "poster": "https://image.tmdb.org/t/p/w500/xgfjxyV3g1S68opzuvG6G87muDp.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/2pOmuq4nkWZzwZbOfZq7CyyQAsM.jpg"
+  },
+  "the-dark-knight": {
+    "poster": "https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/dqK9Hag1054tghRQSqLSfrkvQnA.jpg"
+  },
+  "interstellar": {
+    "poster": "https://image.tmdb.org/t/p/w500/yQvGrMoipbRoddT0ZR8tPoR7NfX.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/2ssWTSVklAEc98frZUQhgtGHx7s.jpg"
+  },
+  "oppenheimer": {
+    "poster": "https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/neeNHeXjMF5fXoCJRsOmkNGC7q.jpg"
+  },
+  "dune-part-two": {
+    "poster": "https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/eZ239CUp1d6OryZEBPnO2n87gMG.jpg"
+  },
+  "deadpool-wolverine": {
+    "poster": "https://image.tmdb.org/t/p/w500/8cdWjvZQUExUUTzyp4t6EDMubfO.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/cOoVcVQ3i1m5b2xtqKBtoTSbxC1.jpg"
+  },
+  "john-wick-4": {
+    "poster": "https://image.tmdb.org/t/p/w500/vZloFAK7NmvMGKE7VkF5UHaz0I.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/7I6VUdPj6tQECNHdviJkUHD2u89.jpg"
+  },
+  "spiderman-across": {
+    "poster": "https://image.tmdb.org/t/p/w500/8Vt6mWEReuy4Of61Lnj5Xj704m8.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/9xfDWXAUbFXQK585JvByT5pEAhe.jpg"
+  },
+  "avatar-way": {
+    "poster": "https://image.tmdb.org/t/p/w500/t6HIqrRAclMCA60NsSmeqe9RmNV.jpg",
+    "backdrop": "https://image.tmdb.org/t/p/w1280/kJsPVzdyBrYHLomuNv5SJDXUQ2f.jpg"
+  }
+}
