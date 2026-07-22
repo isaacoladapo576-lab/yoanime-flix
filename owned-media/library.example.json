@@ -1,0 +1,30 @@
+{
+  "items": [
+    {
+      "id": "my-movie",
+      "type": "movie",
+      "title": "My Licensed Movie",
+      "tmdbId": "12345",
+      "file": "my-movie.mp4"
+    },
+    {
+      "id": "my-show-s01e01",
+      "type": "tv",
+      "title": "My Licensed Show",
+      "tmdbId": "67890",
+      "season": 1,
+      "episode": 1,
+      "file": "my-show-s01e01.mp4"
+    },
+    {
+      "id": "my-anime-s01e01",
+      "type": "anime",
+      "title": "My Licensed Anime",
+      "tmdbId": "24680",
+      "anilistId": "13579",
+      "season": 1,
+      "episode": 1,
+      "file": "my-anime-s01e01.mp4"
+    }
+  ]
+}

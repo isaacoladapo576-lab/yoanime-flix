@@ -3,8 +3,10 @@ const https = require('https');
 const fs    = require('fs');
 const path  = require('path');
 const { buildStreamSources, isAllowedProviderUrl } = require('./stream-sources');
+const { createOwnedMediaLibrary } = require('./owned-media');
 
 const PORT = process.env.PORT || 8080;
+const ownedMedia = createOwnedMediaLibrary();
 
 const MIME = {
     '.html': 'text/html; charset=utf-8',
@@ -165,6 +167,8 @@ const server = http.createServer(async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     if (method === 'OPTIONS') { res.writeHead(204); return res.end(); }
+
+    if (await ownedMedia.handle(req, res, urlObj)) return;
 
     // Anichi scraper endpoint — with request-ID cancellation
     if (pathname === '/api/scrape/anichi') {

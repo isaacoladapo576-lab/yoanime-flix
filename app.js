@@ -820,6 +820,28 @@ async function resolveAniChiStream(item, season, episode) {
     }
 }
 
+async function resolveOwnedMediaStream(item, season, episode) {
+    const params = new URLSearchParams({
+        type: item.isAnime ? 'anime' : item.type,
+        tmdbId: String(item.tmdbId || item.id || ''),
+        anilistId: String(item.anilistId || ''),
+        season: String(season || 1),
+        episode: String(episode || 1)
+    });
+    const response = await fetch(`/api/owned-media/resolve?${params}`, { cache: 'no-store' });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.source?.streamUrl) {
+        throw new Error(data.error || 'No owned-media file matches this title and episode');
+    }
+    return {
+        url: data.source.streamUrl,
+        downloadUrl: data.source.downloadUrl || data.source.streamUrl,
+        iframe: false,
+        type: data.source.contentType || 'video/mp4',
+        downloadable: true
+    };
+}
+
 function getCurrentStreamServers() {
     if (!window.StreamSources) return [];
     const type = currentItem.isAnime ? 'anime' : currentItem.type;
@@ -832,6 +854,15 @@ function getCurrentStreamServers() {
         episode: currentEp,
         audio: isDub ? 'dub' : 'sub'
     }).map(source => ({ ...source, url: () => source.url }));
+
+    servers.unshift({
+        id: 'owned-media',
+        name: 'My downloadable media',
+        supportsDub: true,
+        iframe: true,
+        isProxy: true,
+        url: resolveOwnedMediaStream
+    });
 
     if (currentItem.isAnime) {
         servers.splice(Math.min(1, servers.length), 0, {
@@ -994,6 +1025,7 @@ async function _loadVideoInternal() {
                 if (result.iframe === false) {
                     playRawStream(result.url, result.type || 'mp4', {
                         downloadable: result.downloadable === true,
+                        downloadUrl: result.downloadUrl,
                         sourceName: srv.name
                     });
                     return;
@@ -1004,6 +1036,7 @@ async function _loadVideoInternal() {
                 if (!result) throw new Error("Scraper returned no stream");
                 playRawStream(result.rawUrl, result.type, {
                     downloadable: result.downloadable === true,
+                    downloadUrl: result.downloadUrl,
                     sourceName: srv.name
                 });
                 return;
@@ -1111,7 +1144,8 @@ function playRawStream(url, type, options = {}) {
     const iframe  = document.getElementById('player-iframe');
     resetNativePlayer();
     setCurrentResolvedStream({
-        url,
+        url: options.downloadUrl || url,
+        playbackUrl: url,
         type: type || 'mp4',
         downloadable: options.downloadable === true,
         sourceName: options.sourceName || 'Direct source'
