@@ -1,0 +1,11 @@
+{
+  "name": "YoAnime.Flx",
+  "short_name": "YoAnime",
+  "description": "A cinematic home for movies, series and anime.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#080812",
+  "theme_color": "#080812",
+  "categories": ["entertainment", "video"]
+}

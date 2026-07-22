@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-    <meta name="theme-color" content="#000000">
-    <meta name="description" content="YoAnime.Flx — Premium Streaming">
+    <meta name="theme-color" content="#080812">
+    <meta name="description" content="YoAnime.Flx — Your cinematic home for movies, series and anime.">
     <title>YoAnime.Flx</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=17">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="stylesheet" href="styles.css?v=19">
 
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎌</text></svg>">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -22,13 +23,17 @@
 <nav class="navbar" id="navbar">
     <div class="nav-inner">
         <div class="nav-left">
-            <a class="brand" href="#" onclick="goHome(); return false;">YoAnime<span style="color:white">.Flx</span></a>
+            <a class="brand" href="#" onclick="goHome(); return false;" aria-label="YoAnime Flix home">
+                <span class="brand-mark" aria-hidden="true">Y</span>
+                <span class="brand-word">YoAnime<span>.Flx</span></span>
+            </a>
             <ul class="nav-links" id="nav-links">
                 <li><a href="#" id="nav-home" class="nav-link active" onclick="showSection('home'); return false;">Home</a></li>
                 <li><a href="#" id="nav-anime" class="nav-link" onclick="showSection('anime'); return false;">Anime</a></li>
                 <li><a href="#" id="nav-shows" class="nav-link" onclick="showSection('shows'); return false;">TV Shows</a></li>
                 <li><a href="#" id="nav-movies" class="nav-link" onclick="showSection('movies'); return false;">Movies</a></li>
                 <li><a href="#" id="nav-mylist" class="nav-link" onclick="showSection('mylist'); return false;">My List</a></li>
+                <li><a href="#" class="nav-link nav-downloads" onclick="openDownloadsPanel(); return false;">Downloads</a></li>
             </ul>
         </div>
 
@@ -60,6 +65,7 @@
         <a href="#" onclick="showSection('shows'); closeMobileMenu(); return false;">TV Shows</a>
         <a href="#" onclick="showSection('movies'); closeMobileMenu(); return false;">Movies</a>
         <a href="#" onclick="showSection('mylist'); closeMobileMenu(); return false;">My List</a>
+        <a href="#" onclick="openDownloadsPanel(); closeMobileMenu(); return false;">Downloads</a>
         <button class="mobile-account-button" onclick="openAccountPanel(); closeMobileMenu();">
             <span class="account-avatar" id="mobile-account-avatar">Y</span>
             <span id="mobile-account-label">Create account or sign in</span>
@@ -95,6 +101,20 @@
             <span class="view-eyebrow">Handpicked for tonight</span>
             <h2>Find your next obsession.</h2>
             <p>Premium collections, updated daily.</p>
+        </div>
+        <div class="experience-strip" aria-label="YoAnime Flix features">
+            <div class="experience-card">
+                <span class="experience-icon">01</span>
+                <div><strong>One beautiful library</strong><small>Movies, series and anime—together.</small></div>
+            </div>
+            <div class="experience-card">
+                <span class="experience-icon">02</span>
+                <div><strong>Smart server switching</strong><small>Automatic fallbacks keep playback moving.</small></div>
+            </div>
+            <div class="experience-card">
+                <span class="experience-icon">03</span>
+                <div><strong>Offline-ready</strong><small>Save approved files or import media you own.</small></div>
+            </div>
         </div>
         <section class="content-section" id="home-recent-section" style="display:none;">
             <div class="section-header"><div><span class="section-eyebrow">Pick up where you left off</span><h3 class="section-title">Continue Watching</h3></div></div>
@@ -239,7 +259,10 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
             Back
         </button>
-        <div style="flex:1; text-align:center; font-weight:600; font-size:1.1rem; color:white;" id="player-title"></div>
+        <div class="player-title-lockup">
+            <span class="player-live-dot" aria-hidden="true"></span>
+            <div><small>Now streaming</small><strong id="player-title"></strong></div>
+        </div>
         <div style="display:flex; gap:16px; align-items:center;">
             <div class="custom-dropdown" id="server-dropdown">
                 <div class="dropdown-selected" onclick="toggleDropdown()">
@@ -260,6 +283,24 @@
             </div>
         </div>
         <iframe id="player-iframe" src="" allowfullscreen allow="autoplay; fullscreen" style="position:absolute; inset:0; width:100%; height:100%; border:none; z-index:2;"></iframe>
+    </div>
+
+    <div class="player-utility-bar" aria-label="Player actions">
+        <div class="player-media-summary">
+            <span class="utility-kicker">Your screening room</span>
+            <strong id="player-media-label">Ready to play</strong>
+            <span id="player-source-status">Finding the best available source</span>
+        </div>
+        <div class="player-utility-actions">
+            <button type="button" class="utility-btn utility-btn-secondary" onclick="openDownloadsPanel()">
+                <span aria-hidden="true">▣</span>
+                Offline library
+            </button>
+            <button type="button" class="utility-btn utility-btn-primary" id="offline-download-btn" onclick="downloadCurrentMedia()">
+                <span class="utility-download-icon" aria-hidden="true">↓</span>
+                <span><strong>Download</strong><small id="offline-download-hint">Checking source…</small></span>
+            </button>
+        </div>
     </div>
     
     <div id="episode-nav" class="episode-dock" style="display:none;" aria-label="Episode navigation">
@@ -298,8 +339,43 @@
     </div>
 </div>
 
+<!-- OFFLINE LIBRARY -->
+<div class="offline-overlay" id="downloads-panel" onclick="if(event.target===this) closeDownloadsPanel()">
+    <section class="offline-panel" role="dialog" aria-modal="true" aria-labelledby="downloads-title">
+        <header class="offline-header">
+            <div>
+                <span class="offline-eyebrow">Available without a connection</span>
+                <h2 id="downloads-title">Your offline library</h2>
+                <p>Approved downloads and personal media stay on this device.</p>
+            </div>
+            <button class="modal-close offline-close" onclick="closeDownloadsPanel()" aria-label="Close downloads">✕</button>
+        </header>
+        <div class="offline-hero-card">
+            <div class="offline-orbit" aria-hidden="true"><span>↓</span></div>
+            <div>
+                <strong>Bring your own screen anywhere.</strong>
+                <p>Save a source-approved file, or import a video you own. Protected streaming embeds cannot be copied.</p>
+            </div>
+            <button class="offline-import-btn" type="button" onclick="document.getElementById('offline-file-input').click()">Import owned media</button>
+            <input id="offline-file-input" type="file" accept="video/*" hidden onchange="importOfflineMedia(this.files && this.files[0]); this.value=''">
+        </div>
+        <div class="offline-status" id="offline-status" hidden></div>
+        <div class="offline-list-header">
+            <div><strong>Saved on this device</strong><span id="offline-storage-copy">0 items</span></div>
+            <button type="button" onclick="renderOfflineLibrary()">Refresh</button>
+        </div>
+        <div class="offline-list" id="offline-download-list"></div>
+        <div class="offline-empty" id="offline-empty">
+            <span>◎</span>
+            <strong>Nothing saved yet</strong>
+            <p>Downloads from approved sources and imported personal videos will appear here.</p>
+        </div>
+        <p class="offline-legal">Only save media you own or have permission to download. Files remain locally on this device.</p>
+    </section>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-<script src="stream-sources.js?v=8"></script>
-<script src="app.js?v=14"></script>
+<script src="stream-sources.js?v=10"></script>
+<script src="app.js?v=17"></script>
 </body>
 </html>

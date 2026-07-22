@@ -25,6 +25,7 @@ test('movie sources include an ordered primary and external fallbacks', () => {
     assert.deepEqual(sources.map(source => source.priority), sources.map((_, index) => index + 1));
     assert.equal(new Set(sources.map(source => source.url)).size, sources.length);
     assert.ok(sources.every(source => isAllowedProviderUrl(source.url)));
+    assert.ok(sources.every(source => source.downloadable === false));
 });
 
 test('TV sources preserve season and episode in every endpoint', () => {

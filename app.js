@@ -29,6 +29,11 @@ let autoTimer     = null;
 let isStreaming   = false;
 let hlsInstance   = null;
 let playbackLoadId = 0;
+let currentResolvedStream = null;
+let activeOfflineObjectUrl = null;
+
+const OFFLINE_MEDIA_CACHE = 'yoanime-offline-media-v1';
+const OFFLINE_MEDIA_KEY = 'yoanime_offline_library_v1';
 
 let heroItems  = [];
 let heroIndex  = 0;
@@ -52,9 +57,18 @@ let currentSection = 'home';
 document.addEventListener('DOMContentLoaded', () => {
     setupNavbarScroll();
     initAccountSystem();
+    initOfflineExperience();
     loadAllData();
     document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') { closePlayer(); closeModal(); closeAccountPanel(); }
+        if (e.key !== 'Escape') return;
+        const downloadsPanel = document.getElementById('downloads-panel');
+        if (downloadsPanel?.classList.contains('open')) {
+            closeDownloadsPanel();
+            return;
+        }
+        closePlayer();
+        closeModal();
+        closeAccountPanel();
     });
 });
 
@@ -722,6 +736,9 @@ async function openPlayer(item, resumeState = null) {
     document.getElementById('player-page').style.display = 'flex';
     document.body.style.overflow = 'hidden';
     document.getElementById('player-title').textContent  = item.title;
+    updatePlayerMediaSummary();
+    setPlayerSourceStatus('Finding the best available source');
+    setCurrentResolvedStream(null);
 
     const epNav   = document.getElementById('episode-nav');
     const epBadge = document.getElementById('episode-indicator');
@@ -751,6 +768,7 @@ let isDub = false;
 function toggleDub() {
     isDub = !isDub;
     document.getElementById('dub-toggle-btn').textContent = isDub ? 'Dub' : 'Sub';
+    updatePlayerMediaSummary();
     loadVideo();
 }
 
@@ -873,7 +891,10 @@ function loadVideo() {
     if (loading) loading.classList.remove('hidden');
     if (loadTxt) loadTxt.innerHTML = `Preparing stream…`;
     if (iframe) { iframe.style.display = 'none'; iframe.src = ''; }
+    resetNativePlayer();
     isStreaming = false;
+    setCurrentResolvedStream(null);
+    setPlayerSourceStatus('Preparing stream…');
     
     _loadVideoDebounceTimer = setTimeout(() => {
         _loadVideoDebounceTimer = null;
@@ -958,6 +979,7 @@ async function _loadVideoInternal() {
         if (sel) sel.value = currentServerIndex;
 
         loadTxt.innerHTML = `Trying ${srv.name}… <span style="color:#555;font-size:0.75rem">(${attempts}/${maxAttempts})</span>`;
+        setPlayerSourceStatus(`Connecting to ${srv.name}`);
         loading.classList.remove('hidden');
         iframe.style.display = 'none';
         iframe.src = '';
@@ -970,14 +992,20 @@ async function _loadVideoInternal() {
                 const result = typeof srv.url === 'function' ? await srv.url(currentItem, currentSeason, currentEp) : null;
                 if (!result) throw new Error("Scraper returned no stream");
                 if (result.iframe === false) {
-                    playRawStream(result.url, result.type || 'mp4');
+                    playRawStream(result.url, result.type || 'mp4', {
+                        downloadable: result.downloadable === true,
+                        sourceName: srv.name
+                    });
                     return;
                 }
                 embedUrl = result.url;
             } else if (srv.iframe === false) {
                 const result = typeof srv.url === 'function' ? await srv.url(currentItem, currentSeason, currentEp) : null;
                 if (!result) throw new Error("Scraper returned no stream");
-                playRawStream(result.rawUrl, result.type);
+                playRawStream(result.rawUrl, result.type, {
+                    downloadable: result.downloadable === true,
+                    sourceName: srv.name
+                });
                 return;
             } else {
                 embedUrl = typeof srv.url === 'function' ? await srv.url(currentItem, currentSeason, currentEp) : srv.url;
@@ -988,6 +1016,12 @@ async function _loadVideoInternal() {
             }
 
             console.log(`[Player] Attempt ${attempts}: ${srv.name} → ${embedUrl}`);
+            setCurrentResolvedStream({
+                url: embedUrl,
+                type: 'embed',
+                downloadable: false,
+                sourceName: srv.name
+            });
 
             // Clear previous handlers
             iframe.onload = null;
@@ -1033,6 +1067,7 @@ async function _loadVideoInternal() {
                 loading.classList.add('hidden');
                 iframe.style.display = 'block';
                 isStreaming = true;
+                setPlayerSourceStatus(`${srv.name} · protected streaming source`);
                 recordRecentlyWatched();
                 console.log(`[Player] ✓ ${srv.name} loaded successfully`);
             };
@@ -1049,10 +1084,35 @@ async function _loadVideoInternal() {
     tryServer();
 }
 
+function resetNativePlayer() {
+    if (hlsInstance) {
+        hlsInstance.destroy();
+        hlsInstance = null;
+    }
+
+    const video = document.getElementById('native-player');
+    if (!video) return;
+    video.pause();
+    video.oncanplay = null;
+    video.removeAttribute('src');
+    video.load();
+    video.style.display = 'none';
+}
+
 // Play a raw HLS or MP4 stream directly using hls.js
-function playRawStream(url, type) {
+function playRawStream(url, type, options = {}) {
     const loading = document.getElementById('player-loading');
     const iframe  = document.getElementById('player-iframe');
+    resetNativePlayer();
+    setCurrentResolvedStream({
+        url,
+        type: type || 'mp4',
+        downloadable: options.downloadable === true,
+        sourceName: options.sourceName || 'Direct source'
+    });
+    setPlayerSourceStatus(options.downloadable === true
+        ? `${options.sourceName || 'Direct source'} · download available`
+        : `${options.sourceName || 'Direct source'} · streaming only`);
     iframe.style.display = 'none';
     iframe.src = '';
 
@@ -1070,10 +1130,10 @@ function playRawStream(url, type) {
 
     if (type === 'hls' || url.includes('.m3u8')) {
         if (window.Hls && Hls.isSupported()) {
-            const hls = new Hls();
-            hls.loadSource(url);
-            hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            hlsInstance = new Hls();
+            hlsInstance.loadSource(url);
+            hlsInstance.attachMedia(video);
+            hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
                 loading.classList.add('hidden');
                 isStreaming = true;
                 recordRecentlyWatched();
@@ -1163,6 +1223,8 @@ function showPlayerError(msg) {
     const loadTxt = document.getElementById('loading-text');
     const iframe  = document.getElementById('player-iframe');
     iframe.style.display = 'none';
+    setCurrentResolvedStream(null);
+    setPlayerSourceStatus('No playable source is currently available');
     loading.classList.remove('hidden');
     loadTxt.innerHTML = `
         <div style="text-align:center;padding:20px;">
@@ -1182,10 +1244,16 @@ function closePlayer() {
     iframe.onerror = null;
     iframe.src = '';
     iframe.style.display = 'none';
+    resetNativePlayer();
     
     document.getElementById('player-page').style.display = 'none';
     document.body.style.overflow = '';
+    if (activeOfflineObjectUrl) {
+        URL.revokeObjectURL(activeOfflineObjectUrl);
+        activeOfflineObjectUrl = null;
+    }
     currentItem = null;
+    currentResolvedStream = null;
     isStreaming = false;
 }
 
@@ -1195,6 +1263,7 @@ function closePlayer() {
 function updateEpisodeNav() {
     const badge = document.getElementById('episode-indicator');
     if (badge) badge.textContent = `S${currentSeason} · E${currentEp}`;
+    updatePlayerMediaSummary();
 
     const epCount = (currentItem.episodesPerSeason && currentItem.episodesPerSeason[currentSeason-1]) || 12;
     const totalSeasons = currentItem.seasons || 1;
@@ -1314,6 +1383,272 @@ document.addEventListener('keydown', event => {
         prevEpisode();
     }
 });
+
+// ============================================
+// Offline library — approved files + owned media
+// ============================================
+function initOfflineExperience() {
+    if ('serviceWorker' in navigator && /^https?:$/.test(window.location.protocol)) {
+        navigator.serviceWorker.register('/sw.js').catch(error => {
+            console.warn('[Offline] App shell registration failed:', error.message);
+        });
+    }
+    renderOfflineLibrary();
+    updateDownloadAvailability();
+}
+
+function setCurrentResolvedStream(stream) {
+    currentResolvedStream = stream && stream.url ? { ...stream } : null;
+    updateDownloadAvailability();
+}
+
+function setPlayerSourceStatus(message) {
+    const status = document.getElementById('player-source-status');
+    if (status) status.textContent = message || '';
+}
+
+function updatePlayerMediaSummary() {
+    const label = document.getElementById('player-media-label');
+    if (!label || !currentItem) return;
+    if (currentItem.type === 'movie') {
+        label.textContent = `${currentItem.title} · Movie`;
+    } else {
+        label.textContent = `${currentItem.title} · S${currentSeason} E${currentEp}${isDub ? ' · Dub' : ' · Sub'}`;
+    }
+}
+
+function updateDownloadAvailability() {
+    const button = document.getElementById('offline-download-btn');
+    const hint = document.getElementById('offline-download-hint');
+    if (!button || !hint) return;
+
+    const canDownload = Boolean(
+        currentResolvedStream?.downloadable === true &&
+        currentResolvedStream.type !== 'hls' &&
+        !String(currentResolvedStream.url || '').includes('.m3u8')
+    );
+    button.classList.toggle('is-ready', canDownload);
+    button.dataset.ready = canDownload ? 'true' : 'false';
+    hint.textContent = canDownload
+        ? 'Available from this source'
+        : currentResolvedStream
+            ? 'Protected source'
+            : 'Checking source…';
+}
+
+function readOfflineLibrary() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(OFFLINE_MEDIA_KEY));
+        return Array.isArray(saved) ? saved : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+function writeOfflineLibrary(entries) {
+    localStorage.setItem(OFFLINE_MEDIA_KEY, JSON.stringify(entries));
+}
+
+function offlineMediaUrl(id) {
+    return `${window.location.origin}/__offline_media__/${encodeURIComponent(id)}`;
+}
+
+function formatBytes(bytes) {
+    const value = Number(bytes) || 0;
+    if (value < 1024) return `${value} B`;
+    if (value < 1024 ** 2) return `${(value / 1024).toFixed(1)} KB`;
+    if (value < 1024 ** 3) return `${(value / 1024 ** 2).toFixed(1)} MB`;
+    return `${(value / 1024 ** 3).toFixed(1)} GB`;
+}
+
+function setOfflineStatus(message, tone = 'info') {
+    const status = document.getElementById('offline-status');
+    if (!status) return;
+    status.hidden = !message;
+    status.className = `offline-status ${tone}`;
+    status.textContent = message || '';
+}
+
+function openDownloadsPanel() {
+    const panel = document.getElementById('downloads-panel');
+    if (!panel) return;
+    panel.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    renderOfflineLibrary();
+}
+
+function closeDownloadsPanel() {
+    const panel = document.getElementById('downloads-panel');
+    if (!panel) return;
+    panel.classList.remove('open');
+    const playerOpen = document.getElementById('player-page')?.style.display !== 'none';
+    document.body.style.overflow = playerOpen ? 'hidden' : '';
+}
+
+async function renderOfflineLibrary() {
+    const list = document.getElementById('offline-download-list');
+    const empty = document.getElementById('offline-empty');
+    const copy = document.getElementById('offline-storage-copy');
+    if (!list || !empty || !copy) return;
+
+    const entries = readOfflineLibrary().sort((a, b) => Number(b.savedAt) - Number(a.savedAt));
+    copy.textContent = `${entries.length} ${entries.length === 1 ? 'item' : 'items'} · ${formatBytes(entries.reduce((sum, entry) => sum + (Number(entry.size) || 0), 0))}`;
+    empty.style.display = entries.length ? 'none' : 'grid';
+    list.innerHTML = entries.map(entry => `
+        <article class="offline-item">
+            <div class="offline-item-art" ${entry.poster ? `style="background-image:url('${escapeHtml(entry.poster)}')"` : ''}>
+                <span>${entry.poster ? '' : '▶'}</span>
+            </div>
+            <div class="offline-item-copy">
+                <span>${escapeHtml(entry.kind || 'Personal media')}</span>
+                <strong>${escapeHtml(entry.title || 'Untitled video')}</strong>
+                <small>${formatBytes(entry.size)} · Saved ${new Date(entry.savedAt).toLocaleDateString()}</small>
+            </div>
+            <div class="offline-item-actions">
+                <button type="button" class="offline-play-btn" onclick="playOfflineMedia('${escapeHtml(entry.id)}')">Play offline</button>
+                <button type="button" class="offline-remove-btn" onclick="removeOfflineMedia('${escapeHtml(entry.id)}')" aria-label="Remove ${escapeHtml(entry.title)}">✕</button>
+            </div>
+        </article>
+    `).join('');
+}
+
+async function importOfflineMedia(file) {
+    if (!file) return;
+    if (!file.type.startsWith('video/')) {
+        setOfflineStatus('Choose a video file to add to your offline library.', 'error');
+        return;
+    }
+    if (!('caches' in window)) {
+        setOfflineStatus('Offline storage is not supported in this browser.', 'error');
+        return;
+    }
+
+    openDownloadsPanel();
+    setOfflineStatus(`Saving ${file.name} on this device…`, 'loading');
+    try {
+        const id = `local-${crypto.randomUUID ? crypto.randomUUID() : Date.now()}`;
+        const mediaUrl = offlineMediaUrl(id);
+        const cache = await caches.open(OFFLINE_MEDIA_CACHE);
+        await cache.put(mediaUrl, new Response(file, {
+            headers: {
+                'Content-Type': file.type || 'video/mp4',
+                'Content-Length': String(file.size)
+            }
+        }));
+        const entries = readOfflineLibrary();
+        entries.unshift({
+            id,
+            title: file.name.replace(/\.[^.]+$/, ''),
+            kind: 'Imported media',
+            size: file.size,
+            contentType: file.type || 'video/mp4',
+            savedAt: Date.now(),
+            mediaUrl
+        });
+        writeOfflineLibrary(entries);
+        setOfflineStatus(`${file.name} is ready to watch offline.`, 'success');
+        await renderOfflineLibrary();
+    } catch (error) {
+        setOfflineStatus(`Could not save this file: ${error.message}`, 'error');
+    }
+}
+
+async function downloadCurrentMedia() {
+    const canDownload = Boolean(
+        currentResolvedStream?.downloadable === true &&
+        currentResolvedStream.type !== 'hls' &&
+        !String(currentResolvedStream.url || '').includes('.m3u8')
+    );
+    openDownloadsPanel();
+
+    if (!canDownload) {
+        setOfflineStatus('This provider supplies a protected streaming player, not a downloadable file. Choose a source that explicitly allows downloads, or import media you own.', 'notice');
+        return;
+    }
+    if (!('caches' in window)) {
+        setOfflineStatus('Offline storage is not supported in this browser.', 'error');
+        return;
+    }
+
+    setOfflineStatus('Downloading from the approved source… Keep this tab open.', 'loading');
+    try {
+        const response = await fetch(currentResolvedStream.url, { mode: 'cors', credentials: 'omit' });
+        if (!response.ok) throw new Error(`source returned ${response.status}`);
+        const contentType = response.headers.get('content-type') || 'video/mp4';
+        if (!contentType.startsWith('video/')) throw new Error('source did not return a video file');
+
+        const id = `download-${crypto.randomUUID ? crypto.randomUUID() : Date.now()}`;
+        const mediaUrl = offlineMediaUrl(id);
+        const cache = await caches.open(OFFLINE_MEDIA_CACHE);
+        await cache.put(mediaUrl, response.clone());
+        const size = Number(response.headers.get('content-length')) || 0;
+        const entries = readOfflineLibrary();
+        entries.unshift({
+            id,
+            title: currentItem?.title || 'Downloaded video',
+            kind: currentItem?.type === 'movie' ? 'Movie' : `Season ${currentSeason} · Episode ${currentEp}`,
+            poster: currentItem?.poster || '',
+            size,
+            contentType,
+            savedAt: Date.now(),
+            mediaUrl
+        });
+        writeOfflineLibrary(entries);
+        setOfflineStatus(`${currentItem?.title || 'Video'} is ready to watch offline.`, 'success');
+        await renderOfflineLibrary();
+    } catch (error) {
+        setOfflineStatus(`Download failed: ${error.message}. The source may block offline storage.`, 'error');
+    }
+}
+
+async function playOfflineMedia(id) {
+    const entry = readOfflineLibrary().find(item => item.id === id);
+    if (!entry || !('caches' in window)) return;
+    const cache = await caches.open(OFFLINE_MEDIA_CACHE);
+    const response = await cache.match(entry.mediaUrl || offlineMediaUrl(id));
+    if (!response) {
+        setOfflineStatus('This saved file is missing. Remove it and add it again.', 'error');
+        return;
+    }
+
+    const blob = await response.blob();
+    if (activeOfflineObjectUrl) URL.revokeObjectURL(activeOfflineObjectUrl);
+    activeOfflineObjectUrl = URL.createObjectURL(blob);
+    currentItem = {
+        id: entry.id,
+        title: entry.title,
+        type: 'movie',
+        isAnime: false,
+        seasons: 1,
+        episodesPerSeason: [],
+        poster: entry.poster || ''
+    };
+    currentSeason = 1;
+    currentEp = 1;
+    isDub = false;
+    closeDownloadsPanel();
+    document.getElementById('player-page').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    document.getElementById('player-title').textContent = entry.title;
+    document.getElementById('episode-nav').style.display = 'none';
+    document.getElementById('dub-toggle-btn').style.display = 'none';
+    updatePlayerMediaSummary();
+    playRawStream(activeOfflineObjectUrl, entry.contentType || 'mp4', { sourceName: 'Offline library' });
+}
+
+async function removeOfflineMedia(id) {
+    const entries = readOfflineLibrary();
+    const entry = entries.find(item => item.id === id);
+    if (!entry) return;
+    if (!window.confirm(`Remove “${entry.title}” from this device?`)) return;
+    if ('caches' in window) {
+        const cache = await caches.open(OFFLINE_MEDIA_CACHE);
+        await cache.delete(entry.mediaUrl || offlineMediaUrl(id));
+    }
+    writeOfflineLibrary(entries.filter(item => item.id !== id));
+    setOfflineStatus(`${entry.title} was removed from this device.`, 'info');
+    await renderOfflineLibrary();
+}
 
 // ============================================
 // Live TMDB Search

@@ -93,6 +93,7 @@
             ...source,
             priority: index + 1,
             iframe: true,
+            downloadable: false,
             supportsDub: Boolean(source.supportsDub)
         }));
     }
