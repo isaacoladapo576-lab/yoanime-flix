@@ -223,6 +223,8 @@ function detectUnavailableEmbedResponse(status, body) {
     const text = String(body || '').slice(0, 500000);
     return [
         /error\s*code\s*:?\s*410/i,
+        /error\s*code\s*:?\s*232403/i,
+        /problem\s+providing\s+access\s+to\s+protected\s+content/i,
         /(?:can't|cannot)\s+find\s+the\s+file/i,
         /file\s+you\s+are\s+looking\s+for/i,
         /deleted\s+by\s+the\s+owner/i,
@@ -242,11 +244,14 @@ async function validateEmbedUrl(url) {
         return { available: false, reason: 'unsupported embed URL protocol' };
     }
 
-    // MegaPlay only serves its player with AniChi's privileged Referer. A URL
-    // that passes a backend probe can still show every user a 410 page when it
-    // is embedded from this app, so it is never a browser-compatible result.
+    // These mirrors only serve their players with AniChi's privileged Referer.
+    // A backend probe can still succeed because the protected-content error is
+    // rendered client-side, so these are never browser-compatible results.
     const hostname = parsed.hostname.toLowerCase();
-    if (hostname === 'megaplay.buzz' || hostname.endsWith('.megaplay.buzz')) {
+    if (
+        hostname === 'megaplay.buzz' || hostname.endsWith('.megaplay.buzz') ||
+        hostname === 'vidwish.live' || hostname.endsWith('.vidwish.live')
+    ) {
         return { available: false, reason: 'embed host requires an incompatible referrer' };
     }
 

@@ -86,12 +86,20 @@ test('AniChi embed validation recognizes removed-file pages', () => {
         <span>Error Code: 410</span>
     `), true);
     assert.equal(detectUnavailableEmbedResponse(410, ''), true);
+    assert.equal(detectUnavailableEmbedResponse(200, `
+        <p>There was a problem providing access to protected content.</p>
+        <span>Error Code: 232403</span>
+    `), true);
     assert.equal(detectUnavailableEmbedResponse(200, '<html><video id="player"></video></html>'), false);
 });
 
 test('AniChi rejects hosts that cannot be embedded from this app', async () => {
     assert.deepEqual(
         await validateEmbedUrl('https://megaplay.buzz/stream/example/dub'),
+        { available: false, reason: 'embed host requires an incompatible referrer' }
+    );
+    assert.deepEqual(
+        await validateEmbedUrl('https://vidwish.live/stream/example/dub'),
         { available: false, reason: 'embed host requires an incompatible referrer' }
     );
 });
