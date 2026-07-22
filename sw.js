@@ -1,12 +1,12 @@
 'use strict';
 
-const APP_CACHE = 'yoanime-shell-v3';
+const APP_CACHE = 'yoanime-shell-v5';
 const APP_SHELL = [
     '/',
     '/index.html',
     '/styles.css?v=19',
     '/stream-sources.js?v=10',
-    '/app.js?v=17',
+    '/app.js?v=19',
     '/manifest.webmanifest'
 ];
 

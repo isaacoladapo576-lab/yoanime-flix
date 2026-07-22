@@ -1015,6 +1015,12 @@ async function _loadVideoInternal() {
                 throw new Error("Resolved embed URL is invalid or undefined");
             }
 
+            setPlayerSourceStatus(`Checking ${srv.name}`);
+            const endpointHealthy = await checkStreamEndpoint(embedUrl);
+            if (endpointHealthy === false) {
+                throw new Error('provider did not pass the live health check');
+            }
+
             console.log(`[Player] Attempt ${attempts}: ${srv.name} → ${embedUrl}`);
             setCurrentResolvedStream({
                 url: embedUrl,
@@ -1419,8 +1425,9 @@ function updatePlayerMediaSummary() {
 
 function updateDownloadAvailability() {
     const button = document.getElementById('offline-download-btn');
+    const label = document.getElementById('offline-download-label');
     const hint = document.getElementById('offline-download-hint');
-    if (!button || !hint) return;
+    if (!button || !label || !hint) return;
 
     const canDownload = Boolean(
         currentResolvedStream?.downloadable === true &&
@@ -1429,10 +1436,11 @@ function updateDownloadAvailability() {
     );
     button.classList.toggle('is-ready', canDownload);
     button.dataset.ready = canDownload ? 'true' : 'false';
+    label.textContent = canDownload ? 'Save + Download' : 'Download unavailable';
     hint.textContent = canDownload
-        ? 'Available from this source'
+        ? 'Browser + offline library'
         : currentResolvedStream
-            ? 'Protected source'
+            ? 'Protected player — tap for details'
             : 'Checking source…';
 }
 
@@ -1553,6 +1561,36 @@ async function importOfflineMedia(file) {
     }
 }
 
+function safeDownloadFilename(title, contentType = 'video/mp4') {
+    const extensionByType = {
+        'video/mp4': 'mp4',
+        'video/webm': 'webm',
+        'video/ogg': 'ogv',
+        'video/quicktime': 'mov',
+        'video/x-matroska': 'mkv'
+    };
+    const base = String(title || 'video')
+        .normalize('NFKD')
+        .replace(/[^a-z0-9._ -]+/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 120) || 'video';
+    const extension = extensionByType[String(contentType).split(';')[0].toLowerCase()] || 'mp4';
+    return `${base}.${extension}`;
+}
+
+function triggerBrowserDownload(url, filename, revokeAfter = false) {
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.rel = 'noopener';
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    if (revokeAfter) window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}
+
 async function downloadCurrentMedia() {
     const canDownload = Boolean(
         currentResolvedStream?.downloadable === true &&
@@ -1562,42 +1600,53 @@ async function downloadCurrentMedia() {
     openDownloadsPanel();
 
     if (!canDownload) {
-        setOfflineStatus('This provider supplies a protected streaming player, not a downloadable file. Choose a source that explicitly allows downloads, or import media you own.', 'notice');
-        return;
-    }
-    if (!('caches' in window)) {
-        setOfflineStatus('Offline storage is not supported in this browser.', 'error');
+        setOfflineStatus('Nothing downloaded: this server uses a protected streaming player, not a video file. I cannot copy or bypass it. Switch to an approved direct-file source, or import a video you own.', 'notice');
         return;
     }
 
-    setOfflineStatus('Downloading from the approved source… Keep this tab open.', 'loading');
+    setOfflineStatus('Saving to your offline library and browser Downloads… Keep this tab open.', 'loading');
     try {
         const response = await fetch(currentResolvedStream.url, { mode: 'cors', credentials: 'omit' });
         if (!response.ok) throw new Error(`source returned ${response.status}`);
         const contentType = response.headers.get('content-type') || 'video/mp4';
         if (!contentType.startsWith('video/')) throw new Error('source did not return a video file');
+        const blob = await response.blob();
+        const itemTitle = currentItem?.type === 'movie'
+            ? currentItem?.title
+            : `${currentItem?.title || 'Episode'} S${currentSeason}E${currentEp}`;
+        const filename = safeDownloadFilename(itemTitle, contentType);
+        const browserUrl = URL.createObjectURL(blob);
+        triggerBrowserDownload(browserUrl, filename, true);
 
-        const id = `download-${crypto.randomUUID ? crypto.randomUUID() : Date.now()}`;
-        const mediaUrl = offlineMediaUrl(id);
-        const cache = await caches.open(OFFLINE_MEDIA_CACHE);
-        await cache.put(mediaUrl, response.clone());
-        const size = Number(response.headers.get('content-length')) || 0;
-        const entries = readOfflineLibrary();
-        entries.unshift({
-            id,
-            title: currentItem?.title || 'Downloaded video',
-            kind: currentItem?.type === 'movie' ? 'Movie' : `Season ${currentSeason} · Episode ${currentEp}`,
-            poster: currentItem?.poster || '',
-            size,
-            contentType,
-            savedAt: Date.now(),
-            mediaUrl
-        });
-        writeOfflineLibrary(entries);
-        setOfflineStatus(`${currentItem?.title || 'Video'} is ready to watch offline.`, 'success');
-        await renderOfflineLibrary();
+        if ('caches' in window) {
+            const id = `download-${crypto.randomUUID ? crypto.randomUUID() : Date.now()}`;
+            const mediaUrl = offlineMediaUrl(id);
+            const cache = await caches.open(OFFLINE_MEDIA_CACHE);
+            await cache.put(mediaUrl, new Response(blob, {
+                headers: {
+                    'Content-Type': contentType,
+                    'Content-Length': String(blob.size)
+                }
+            }));
+            const entries = readOfflineLibrary();
+            entries.unshift({
+                id,
+                title: currentItem?.title || 'Downloaded video',
+                kind: currentItem?.type === 'movie' ? 'Movie' : `Season ${currentSeason} · Episode ${currentEp}`,
+                poster: currentItem?.poster || '',
+                size: blob.size,
+                contentType,
+                savedAt: Date.now(),
+                mediaUrl
+            });
+            writeOfflineLibrary(entries);
+            setOfflineStatus(`${filename} was added to this offline library and sent to your browser Downloads.`, 'success');
+            await renderOfflineLibrary();
+        } else {
+            setOfflineStatus(`${filename} was sent to your browser Downloads. This browser does not support the offline library.`, 'notice');
+        }
     } catch (error) {
-        setOfflineStatus(`Download failed: ${error.message}. The source may block offline storage.`, 'error');
+        setOfflineStatus(`Download failed: ${error.message}. The approved source may block cross-browser downloads.`, 'error');
     }
 }
 
