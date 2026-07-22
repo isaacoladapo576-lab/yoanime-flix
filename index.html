@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=15">
+    <link rel="stylesheet" href="styles.css?v=16">
 
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎌</text></svg>">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -24,11 +24,11 @@
         <div class="nav-left">
             <a class="brand" href="#" onclick="goHome(); return false;">YoAnime<span style="color:white">.Flx</span></a>
             <ul class="nav-links" id="nav-links">
-                <li><a href="#" class="nav-link active" onclick="showSection('home'); return false;">Home</a></li>
-                <li><a href="#" class="nav-link" onclick="showSection('anime'); return false;">Anime</a></li>
-                <li><a href="#" class="nav-link" onclick="showSection('shows'); return false;">TV Shows</a></li>
-                <li><a href="#" class="nav-link" onclick="showSection('movies'); return false;">Movies</a></li>
-                <li><a href="#" class="nav-link" onclick="showSection('mylist'); return false;">My List</a></li>
+                <li><a href="#" id="nav-home" class="nav-link active" onclick="showSection('home'); return false;">Home</a></li>
+                <li><a href="#" id="nav-anime" class="nav-link" onclick="showSection('anime'); return false;">Anime</a></li>
+                <li><a href="#" id="nav-shows" class="nav-link" onclick="showSection('shows'); return false;">TV Shows</a></li>
+                <li><a href="#" id="nav-movies" class="nav-link" onclick="showSection('movies'); return false;">Movies</a></li>
+                <li><a href="#" id="nav-mylist" class="nav-link" onclick="showSection('mylist'); return false;">My List</a></li>
             </ul>
         </div>
 
@@ -40,6 +40,13 @@
                 </div>
                 <div class="search-overlay" id="search-overlay"></div>
             </div>
+            <button class="account-button" id="account-button" onclick="openAccountPanel()" aria-label="Open account">
+                <span class="account-avatar" id="account-avatar">Y</span>
+                <span class="account-copy">
+                    <small id="account-kicker">Your profile</small>
+                    <strong id="account-label">Sign in</strong>
+                </span>
+            </button>
             <button class="hamburger" id="hamburger" onclick="toggleMenu()">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
@@ -53,6 +60,10 @@
         <a href="#" onclick="showSection('shows'); closeMobileMenu(); return false;">TV Shows</a>
         <a href="#" onclick="showSection('movies'); closeMobileMenu(); return false;">Movies</a>
         <a href="#" onclick="showSection('mylist'); closeMobileMenu(); return false;">My List</a>
+        <button class="mobile-account-button" onclick="openAccountPanel(); closeMobileMenu();">
+            <span class="account-avatar" id="mobile-account-avatar">Y</span>
+            <span id="mobile-account-label">Create account or sign in</span>
+        </button>
     </div>
 </nav>
 
@@ -79,66 +90,61 @@
 
 <!-- MAIN CONTENT -->
 <main class="main" id="main-content">
-    
-    <!-- My List row -->
-    <section class="content-section" id="mylist-section" style="display:none;">
-        <div class="section-header">
-            <h2 class="section-title">My List</h2>
+    <div class="catalogue-view active" id="home-view" data-view="home">
+        <div class="view-heading">
+            <span class="view-eyebrow">Handpicked for tonight</span>
+            <h2>Find your next obsession.</h2>
+            <p>Premium collections, updated daily.</p>
         </div>
-        <div class="row-wrap">
-            <button class="row-btn row-btn-left" onclick="scrollRow('mylist-row',-1)">❮</button>
-            <div class="content-row" id="mylist-row"></div>
-            <button class="row-btn row-btn-right" onclick="scrollRow('mylist-row',1)">❯</button>
-        </div>
-    </section>
+        <section class="content-section" id="home-recent-section" style="display:none;">
+            <div class="section-header"><div><span class="section-eyebrow">Pick up where you left off</span><h3 class="section-title">Continue Watching</h3></div></div>
+            <div class="row-wrap"><button class="row-btn row-btn-left" onclick="scrollRow('home-recent-row',-1)" aria-label="Scroll left">‹</button><div class="content-row" id="home-recent-row"></div><button class="row-btn row-btn-right" onclick="scrollRow('home-recent-row',1)" aria-label="Scroll right">›</button></div>
+        </section>
+        <section class="content-section" id="trending-section">
+            <div class="section-header"><div><span class="section-eyebrow">What everyone is watching</span><h3 class="section-title">Trending Now</h3></div></div>
+            <div class="row-wrap"><button class="row-btn row-btn-left" onclick="scrollRow('trending-row',-1)" aria-label="Scroll left">‹</button><div class="content-row" id="trending-row"></div><button class="row-btn row-btn-right" onclick="scrollRow('trending-row',1)" aria-label="Scroll right">›</button></div>
+        </section>
+        <section class="content-section">
+            <div class="section-header"><div><span class="section-eyebrow">Animated worlds</span><h3 class="section-title">Popular Anime</h3></div><button class="see-all" onclick="showSection('anime')">Explore anime <span>→</span></button></div>
+            <div class="row-wrap"><button class="row-btn row-btn-left" onclick="scrollRow('home-anime-row',-1)" aria-label="Scroll left">‹</button><div class="content-row" id="home-anime-row"></div><button class="row-btn row-btn-right" onclick="scrollRow('home-anime-row',1)" aria-label="Scroll right">›</button></div>
+        </section>
+        <section class="content-section">
+            <div class="section-header"><div><span class="section-eyebrow">Binge-worthy stories</span><h3 class="section-title">Premium TV</h3></div><button class="see-all" onclick="showSection('shows')">Explore shows <span>→</span></button></div>
+            <div class="row-wrap"><button class="row-btn row-btn-left" onclick="scrollRow('home-shows-row',-1)" aria-label="Scroll left">‹</button><div class="content-row" id="home-shows-row"></div><button class="row-btn row-btn-right" onclick="scrollRow('home-shows-row',1)" aria-label="Scroll right">›</button></div>
+        </section>
+        <section class="content-section">
+            <div class="section-header"><div><span class="section-eyebrow">Big-screen energy</span><h3 class="section-title">Blockbuster Movies</h3></div><button class="see-all" onclick="showSection('movies')">Explore movies <span>→</span></button></div>
+            <div class="row-wrap"><button class="row-btn row-btn-left" onclick="scrollRow('home-movies-row',-1)" aria-label="Scroll left">‹</button><div class="content-row" id="home-movies-row"></div><button class="row-btn row-btn-right" onclick="scrollRow('home-movies-row',1)" aria-label="Scroll right">›</button></div>
+        </section>
+    </div>
 
-    <!-- Trending row -->
-    <section class="content-section" id="trending-section">
-        <div class="section-header">
-            <h2 class="section-title">Trending Now</h2>
-        </div>
-        <div class="row-wrap">
-            <button class="row-btn row-btn-left" onclick="scrollRow('trending-row',-1)">❮</button>
-            <div class="content-row" id="trending-row"></div>
-            <button class="row-btn row-btn-right" onclick="scrollRow('trending-row',1)">❯</button>
-        </div>
-    </section>
+    <div class="catalogue-view" id="anime-view" data-view="anime">
+        <div class="view-heading"><span class="view-eyebrow">Anime universe</span><h2>Every world starts here.</h2><p>Scroll down through collections. Swipe sideways to reveal every title.</p></div>
+        <section class="content-section" id="anime-section"><div class="section-header"><div><span class="section-eyebrow">Fan favourites</span><h3 class="section-title">Popular Anime</h3></div></div><div class="row-wrap"><button class="row-btn row-btn-left" onclick="scrollRow('anime-row',-1)" aria-label="Scroll left">‹</button><div class="content-row" id="anime-row"></div><button class="row-btn row-btn-right" onclick="scrollRow('anime-row',1)" aria-label="Scroll right">›</button></div></section>
+        <section class="content-section"><div class="section-header"><div><span class="section-eyebrow">Critically acclaimed</span><h3 class="section-title">Top Rated Anime</h3></div></div><div class="row-wrap"><button class="row-btn row-btn-left" onclick="scrollRow('anime-top-row',-1)" aria-label="Scroll left">‹</button><div class="content-row" id="anime-top-row"></div><button class="row-btn row-btn-right" onclick="scrollRow('anime-top-row',1)" aria-label="Scroll right">›</button></div></section>
+        <section class="content-section"><div class="section-header"><div><span class="section-eyebrow">Fresh episodes</span><h3 class="section-title">Airing Now</h3></div></div><div class="row-wrap"><button class="row-btn row-btn-left" onclick="scrollRow('anime-airing-row',-1)" aria-label="Scroll left">‹</button><div class="content-row" id="anime-airing-row"></div><button class="row-btn row-btn-right" onclick="scrollRow('anime-airing-row',1)" aria-label="Scroll right">›</button></div></section>
+    </div>
 
-    <!-- Top Anime -->
-    <section class="content-section" id="anime-section">
-        <div class="section-header">
-            <h2 class="section-title">Popular Anime</h2>
-        </div>
-        <div class="row-wrap">
-            <button class="row-btn row-btn-left" onclick="scrollRow('anime-row',-1)">❮</button>
-            <div class="content-row" id="anime-row"></div>
-            <button class="row-btn row-btn-right" onclick="scrollRow('anime-row',1)">❯</button>
-        </div>
-    </section>
+    <div class="catalogue-view" id="shows-view" data-view="shows">
+        <div class="view-heading"><span class="view-eyebrow">Series collection</span><h2>One more episode.</h2><p>Drama, comedy and prestige television in curated shelves.</p></div>
+        <section class="content-section" id="shows-section"><div class="section-header"><div><span class="section-eyebrow">Most watched</span><h3 class="section-title">Popular TV Shows</h3></div></div><div class="row-wrap"><button class="row-btn row-btn-left" onclick="scrollRow('shows-row',-1)" aria-label="Scroll left">‹</button><div class="content-row" id="shows-row"></div><button class="row-btn row-btn-right" onclick="scrollRow('shows-row',1)" aria-label="Scroll right">›</button></div></section>
+        <section class="content-section"><div class="section-header"><div><span class="section-eyebrow">Worth the hype</span><h3 class="section-title">Top Rated Series</h3></div></div><div class="row-wrap"><button class="row-btn row-btn-left" onclick="scrollRow('shows-top-row',-1)" aria-label="Scroll left">‹</button><div class="content-row" id="shows-top-row"></div><button class="row-btn row-btn-right" onclick="scrollRow('shows-top-row',1)" aria-label="Scroll right">›</button></div></section>
+        <section class="content-section"><div class="section-header"><div><span class="section-eyebrow">On tonight</span><h3 class="section-title">Airing Today</h3></div></div><div class="row-wrap"><button class="row-btn row-btn-left" onclick="scrollRow('shows-airing-row',-1)" aria-label="Scroll left">‹</button><div class="content-row" id="shows-airing-row"></div><button class="row-btn row-btn-right" onclick="scrollRow('shows-airing-row',1)" aria-label="Scroll right">›</button></div></section>
+    </div>
 
-    <!-- Top Shows -->
-    <section class="content-section" id="shows-section">
-        <div class="section-header">
-            <h2 class="section-title">TV Shows</h2>
-        </div>
-        <div class="row-wrap">
-            <button class="row-btn row-btn-left" onclick="scrollRow('shows-row',-1)">❮</button>
-            <div class="content-row" id="shows-row"></div>
-            <button class="row-btn row-btn-right" onclick="scrollRow('shows-row',1)">❯</button>
-        </div>
-    </section>
+    <div class="catalogue-view" id="movies-view" data-view="movies">
+        <div class="view-heading"><span class="view-eyebrow">Cinema at home</span><h2>Make tonight a premiere.</h2><p>New releases and modern classics, arranged for effortless browsing.</p></div>
+        <section class="content-section" id="movies-section"><div class="section-header"><div><span class="section-eyebrow">Crowd pleasers</span><h3 class="section-title">Popular Movies</h3></div></div><div class="row-wrap"><button class="row-btn row-btn-left" onclick="scrollRow('movies-row',-1)" aria-label="Scroll left">‹</button><div class="content-row" id="movies-row"></div><button class="row-btn row-btn-right" onclick="scrollRow('movies-row',1)" aria-label="Scroll right">›</button></div></section>
+        <section class="content-section"><div class="section-header"><div><span class="section-eyebrow">Just arrived</span><h3 class="section-title">Now Playing</h3></div></div><div class="row-wrap"><button class="row-btn row-btn-left" onclick="scrollRow('movies-now-row',-1)" aria-label="Scroll left">‹</button><div class="content-row" id="movies-now-row"></div><button class="row-btn row-btn-right" onclick="scrollRow('movies-now-row',1)" aria-label="Scroll right">›</button></div></section>
+        <section class="content-section"><div class="section-header"><div><span class="section-eyebrow">The essentials</span><h3 class="section-title">Top Rated Movies</h3></div></div><div class="row-wrap"><button class="row-btn row-btn-left" onclick="scrollRow('movies-top-row',-1)" aria-label="Scroll left">‹</button><div class="content-row" id="movies-top-row"></div><button class="row-btn row-btn-right" onclick="scrollRow('movies-top-row',1)" aria-label="Scroll right">›</button></div></section>
+    </div>
 
-    <!-- Top Movies -->
-    <section class="content-section" id="movies-section">
-        <div class="section-header">
-            <h2 class="section-title">Blockbuster Movies</h2>
-        </div>
-        <div class="row-wrap">
-            <button class="row-btn row-btn-left" onclick="scrollRow('movies-row',-1)">❮</button>
-            <div class="content-row" id="movies-row"></div>
-            <button class="row-btn row-btn-right" onclick="scrollRow('movies-row',1)">❯</button>
-        </div>
-    </section>
+    <div class="catalogue-view" id="mylist-view" data-view="mylist">
+        <div class="view-heading library-heading"><span class="view-eyebrow">Your private screening room</span><h2 id="library-title">My List</h2><p id="library-subtitle">Sign in to keep a personal watch history on this device.</p></div>
+        <section class="content-section" id="recent-section"><div class="section-header"><div><span class="section-eyebrow">Resume any episode</span><h3 class="section-title">Recently Watched</h3></div></div><div class="row-wrap"><button class="row-btn row-btn-left" onclick="scrollRow('recent-row',-1)" aria-label="Scroll left">‹</button><div class="content-row" id="recent-row"></div><button class="row-btn row-btn-right" onclick="scrollRow('recent-row',1)" aria-label="Scroll right">›</button></div></section>
+        <section class="content-section" id="mylist-section"><div class="section-header"><div><span class="section-eyebrow">Saved for later</span><h3 class="section-title">My List</h3></div></div><div class="row-wrap"><button class="row-btn row-btn-left" onclick="scrollRow('mylist-row',-1)" aria-label="Scroll left">‹</button><div class="content-row" id="mylist-row"></div><button class="row-btn row-btn-right" onclick="scrollRow('mylist-row',1)" aria-label="Scroll right">›</button></div></section>
+        <div class="library-empty" id="library-empty"><div class="empty-orbit">+</div><h3>Your library is ready.</h3><p>Play something to build Recently Watched, or save a title to My List.</p><button class="btn-play" onclick="showSection('home')">Browse titles</button></div>
+    </div>
 </main>
 
 <!-- ITEM MODAL -->
@@ -161,7 +167,7 @@
             </div>
         </div>
         <div class="modal-body">
-            <div class="modal-meta">
+            <div class="modal-meta" id="modal-meta">
                 <span class="modal-rating" id="modal-rating">0.0 Match</span>
                 <span id="modal-year">2024</span>
                 <span class="badge" id="modal-type">TV</span>
@@ -177,6 +183,54 @@
         </div>
     </div>
 </div>
+
+<!-- ACCOUNT / PROFILE MODAL -->
+<div class="auth-overlay" id="account-modal" onclick="if(event.target===this) closeAccountPanel()">
+    <div class="auth-panel" role="dialog" aria-modal="true" aria-labelledby="account-modal-title">
+        <button class="modal-close auth-close" onclick="closeAccountPanel()" aria-label="Close account panel">✕</button>
+        <div class="auth-brand"><span class="auth-brand-mark">Y</span><span>YoAnime<span>.Flx</span></span></div>
+
+        <div id="auth-guest-view">
+            <span class="view-eyebrow">Your private profile</span>
+            <h2 id="account-modal-title">Welcome back.</h2>
+            <p class="auth-intro">Sign in to keep My List and Recently Watched separate for every profile on this device.</p>
+            <div class="auth-tabs" role="tablist">
+                <button id="auth-tab-signin" class="auth-tab active" onclick="switchAuthMode('signin')" type="button">Sign in</button>
+                <button id="auth-tab-create" class="auth-tab" onclick="switchAuthMode('create')" type="button">Create account</button>
+            </div>
+
+            <form class="auth-form" id="signin-form" onsubmit="handleSignIn(event)">
+                <label><span>Email</span><input id="signin-email" type="email" autocomplete="email" placeholder="you@example.com" required></label>
+                <label><span>Password</span><input id="signin-password" type="password" autocomplete="current-password" placeholder="Your password" minlength="6" required></label>
+                <button class="auth-submit" type="submit">Sign in <span>→</span></button>
+            </form>
+
+            <form class="auth-form" id="create-form" onsubmit="handleCreateAccount(event)" hidden>
+                <label><span>Display name</span><input id="create-name" type="text" autocomplete="name" placeholder="What should we call you?" minlength="2" maxlength="24" required></label>
+                <label><span>Email</span><input id="create-email" type="email" autocomplete="email" placeholder="you@example.com" required></label>
+                <label><span>Password</span><input id="create-password" type="password" autocomplete="new-password" placeholder="At least 6 characters" minlength="6" required></label>
+                <button class="auth-submit" type="submit">Create profile <span>→</span></button>
+            </form>
+            <div class="auth-status" id="auth-status" aria-live="polite"></div>
+            <p class="auth-note">Profiles are stored privately in this browser. They do not sync between devices.</p>
+        </div>
+
+        <div class="profile-view" id="auth-profile-view" hidden>
+            <div class="profile-hero-avatar" id="profile-hero-avatar">Y</div>
+            <span class="view-eyebrow">Signed in</span>
+            <h2 id="profile-display-name">Your profile</h2>
+            <p id="profile-email"></p>
+            <div class="profile-stats">
+                <div><strong id="profile-recent-count">0</strong><span>Recently watched</span></div>
+                <div><strong id="profile-list-count">0</strong><span>Saved titles</span></div>
+            </div>
+            <button class="auth-submit" type="button" onclick="showSection('mylist'); closeAccountPanel();">Open My List <span>→</span></button>
+            <button class="auth-signout" type="button" onclick="signOutAccount()">Sign out</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="app-toast" role="status" aria-live="polite"></div>
 
 <!-- FULLSCREEN PLAYER -->
 <div id="player-page" style="display:none; position:fixed; inset:0; z-index:9999; background:#000; flex-direction:column;">
@@ -246,6 +300,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <script src="stream-sources.js?v=6"></script>
-<script src="app.js?v=11"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>

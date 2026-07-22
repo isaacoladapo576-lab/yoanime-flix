@@ -38,18 +38,23 @@ let modalItem  = null;
 // Cache loaded rows so we don't over-fetch TMDB
 const stateCache = {
     trending: [], anime: [], shows: [], movies: [],
-    action: [], comedy: [], horror: [], mylist: []
+    animeTop: [], animeAiring: [],
+    showsTop: [], showsAiring: [],
+    moviesNow: [], moviesTop: [],
+    action: [], comedy: [], horror: [], mylist: [], recent: []
 };
 const itemRegistry = {};
+let currentSection = 'home';
 
 // ============================================
 // Init & Fetch Data
 // ============================================
 document.addEventListener('DOMContentLoaded', () => {
     setupNavbarScroll();
+    initAccountSystem();
     loadAllData();
     document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') { closePlayer(); closeModal(); }
+        if (e.key === 'Escape') { closePlayer(); closeModal(); closeAccountPanel(); }
     });
 });
 
@@ -103,13 +108,12 @@ function normalizeItem(t, forcedType = null) {
 
 async function loadAllData() {
     // Show skeleton placeholders immediately so the page doesn't look blank
-    renderSkeletons('trending-row', 15);
-    renderSkeletons('anime-row', 15);
-    renderSkeletons('shows-row', 15);
-    renderSkeletons('movies-row', 15);
-    renderSkeletons('action-row', 15);
-    renderSkeletons('comedy-row', 15);
-    renderSkeletons('horror-row', 15);
+    [
+        'trending-row', 'anime-row', 'anime-top-row', 'anime-airing-row',
+        'shows-row', 'shows-top-row', 'shows-airing-row',
+        'movies-row', 'movies-now-row', 'movies-top-row',
+        'home-anime-row', 'home-shows-row', 'home-movies-row'
+    ].forEach(rowId => renderSkeletons(rowId, 12));
 
     loadMyList();
 
@@ -128,6 +132,7 @@ async function loadAllData() {
     // Anime
     stateCache.anime = animeData.filter(x => x.poster_path).map(x => normalizeItem(x, 'tv'));
     renderRow('anime-row', stateCache.anime);
+    renderRow('home-anime-row', stateCache.anime.slice(0, 24));
 
     // Fetch the rest silently in the background
     Promise.all([
@@ -135,13 +140,34 @@ async function loadAllData() {
         fetchMulti('/discover/movie?sort_by=popularity.desc', 3),
         fetchMulti('/discover/movie?with_genres=28&sort_by=popularity.desc', 3), // Action
         fetchMulti('/discover/movie?with_genres=35&sort_by=popularity.desc', 3), // Comedy
-        fetchMulti('/discover/movie?with_genres=27&sort_by=popularity.desc', 3)  // Horror
-    ]).then(([showsData, moviesData, actionData, comedyData, horrorData]) => {
+        fetchMulti('/discover/movie?with_genres=27&sort_by=popularity.desc', 3), // Horror
+        fetchMulti('/discover/tv?with_genres=16&with_original_language=ja&sort_by=vote_average.desc&vote_count.gte=200', 2),
+        fetchMulti('/discover/tv?with_genres=16&with_original_language=ja&sort_by=first_air_date.desc&vote_count.gte=20', 2),
+        fetchMulti('/tv/top_rated?language=en-US', 2),
+        fetchMulti('/tv/airing_today?language=en-US', 2),
+        fetchMulti('/movie/now_playing?language=en-US', 2),
+        fetchMulti('/movie/top_rated?language=en-US', 2)
+    ]).then(([showsData, moviesData, actionData, comedyData, horrorData, animeTopData, animeAiringData, showsTopData, showsAiringData, moviesNowData, moviesTopData]) => {
         stateCache.shows = showsData.filter(x => x.poster_path).map(x => normalizeItem(x, 'tv'));
         renderRow('shows-row', stateCache.shows);
+        renderRow('home-shows-row', stateCache.shows.slice(0, 24));
         
         stateCache.movies = moviesData.filter(x => x.poster_path).map(x => normalizeItem(x, 'movie'));
         renderRow('movies-row', stateCache.movies);
+        renderRow('home-movies-row', stateCache.movies.slice(0, 24));
+
+        stateCache.animeTop = animeTopData.filter(x => x.poster_path).map(x => normalizeItem(x, 'tv'));
+        stateCache.animeAiring = animeAiringData.filter(x => x.poster_path).map(x => normalizeItem(x, 'tv'));
+        stateCache.showsTop = showsTopData.filter(x => x.poster_path && x.original_language !== 'ja').map(x => normalizeItem(x, 'tv'));
+        stateCache.showsAiring = showsAiringData.filter(x => x.poster_path && x.original_language !== 'ja').map(x => normalizeItem(x, 'tv'));
+        stateCache.moviesNow = moviesNowData.filter(x => x.poster_path).map(x => normalizeItem(x, 'movie'));
+        stateCache.moviesTop = moviesTopData.filter(x => x.poster_path).map(x => normalizeItem(x, 'movie'));
+        renderRow('anime-top-row', stateCache.animeTop);
+        renderRow('anime-airing-row', stateCache.animeAiring);
+        renderRow('shows-top-row', stateCache.showsTop);
+        renderRow('shows-airing-row', stateCache.showsAiring);
+        renderRow('movies-now-row', stateCache.moviesNow);
+        renderRow('movies-top-row', stateCache.moviesTop);
         
         stateCache.action = actionData.filter(x => x.poster_path).map(x => normalizeItem(x, 'movie'));
         renderRow('action-row', stateCache.action);
@@ -155,40 +181,287 @@ async function loadAllData() {
 }
 
 // ============================================
-// Bookmarks (My List) Logic
+// Local Accounts, My List & Recently Watched
 // ============================================
-function loadMyList() {
+const ACCOUNTS_KEY = 'yoanime_accounts_v1';
+const SESSION_KEY = 'yoanime_session_v1';
+const GUEST_PROFILE_KEY = 'yoanime_guest_profile_v1';
+let currentAccount = null;
+
+function readLocalJson(key, fallback) {
     try {
-        const saved = JSON.parse(localStorage.getItem('yoanime_bookmarks')) || [];
-        stateCache.mylist = saved;
-        saved.forEach(item => { itemRegistry[item.id] = item; });
-        
-        const mylistSection = document.getElementById('mylist-section');
-        if (stateCache.mylist.length > 0) {
-            mylistSection.style.display = '';
-            renderRow('mylist-row', stateCache.mylist);
-        } else {
-            mylistSection.style.display = 'none';
+        const value = JSON.parse(localStorage.getItem(key));
+        return value == null ? fallback : value;
+    } catch (_) {
+        return fallback;
+    }
+}
+
+function profileKey(accountId = currentAccount?.id) {
+    return accountId ? `yoanime_profile_${accountId}` : GUEST_PROFILE_KEY;
+}
+
+function getProfileData(accountId = currentAccount?.id) {
+    const key = profileKey(accountId);
+    let data = readLocalJson(key, null);
+    if (!data) {
+        const legacyBookmarks = accountId ? [] : readLocalJson('yoanime_bookmarks', []);
+        data = { bookmarks: legacyBookmarks, recent: [] };
+        localStorage.setItem(key, JSON.stringify(data));
+    }
+    return {
+        bookmarks: Array.isArray(data.bookmarks) ? data.bookmarks : [],
+        recent: Array.isArray(data.recent) ? data.recent : []
+    };
+}
+
+function saveProfileData(data, accountId = currentAccount?.id) {
+    localStorage.setItem(profileKey(accountId), JSON.stringify({
+        bookmarks: Array.isArray(data.bookmarks) ? data.bookmarks : [],
+        recent: Array.isArray(data.recent) ? data.recent.slice(0, 30) : []
+    }));
+}
+
+function initAccountSystem() {
+    const sessionId = localStorage.getItem(SESSION_KEY);
+    const accounts = readLocalJson(ACCOUNTS_KEY, []);
+    currentAccount = accounts.find(account => account.id === sessionId) || null;
+    if (!currentAccount) localStorage.removeItem(SESSION_KEY);
+    updateAccountUI();
+}
+
+function updateAccountUI() {
+    const label = document.getElementById('account-label');
+    const kicker = document.getElementById('account-kicker');
+    const avatar = document.getElementById('account-avatar');
+    const mobileLabel = document.getElementById('mobile-account-label');
+    const mobileAvatar = document.getElementById('mobile-account-avatar');
+    const initial = currentAccount ? currentAccount.name.charAt(0).toUpperCase() : 'Y';
+    if (label) label.textContent = currentAccount ? currentAccount.name : 'Sign in';
+    if (kicker) kicker.textContent = currentAccount ? 'Watching as' : 'Your profile';
+    if (avatar) avatar.textContent = initial;
+    if (mobileAvatar) mobileAvatar.textContent = initial;
+    if (mobileLabel) mobileLabel.textContent = currentAccount ? currentAccount.name : 'Create account or sign in';
+
+    const libraryTitle = document.getElementById('library-title');
+    const librarySubtitle = document.getElementById('library-subtitle');
+    if (libraryTitle) libraryTitle.textContent = currentAccount ? `${currentAccount.name}'s Library` : 'My List';
+    if (librarySubtitle) librarySubtitle.textContent = currentAccount
+        ? 'Your saved titles and watching history, kept separate on this profile.'
+        : 'Create a profile to keep your library separate from other viewers on this device.';
+}
+
+function loadMyList() {
+    const profile = getProfileData();
+    stateCache.mylist = profile.bookmarks;
+    stateCache.recent = profile.recent.map(entry => ({
+        ...entry.item,
+        _recentMeta: {
+            season: entry.season || 1,
+            episode: entry.episode || 1,
+            isDub: Boolean(entry.isDub),
+            watchedAt: entry.watchedAt || 0
         }
-    } catch(e) { console.error("Error loading bookmarks:", e); }
+    }));
+
+    [...stateCache.mylist, ...stateCache.recent].forEach(item => { itemRegistry[item.id] = item; });
+    renderRow('mylist-row', stateCache.mylist);
+    renderRow('recent-row', stateCache.recent, { recent: true });
+    renderRow('home-recent-row', stateCache.recent.slice(0, 16), { recent: true });
+
+    const hasSaved = stateCache.mylist.length > 0;
+    const hasRecent = stateCache.recent.length > 0;
+    const mylistSection = document.getElementById('mylist-section');
+    const recentSection = document.getElementById('recent-section');
+    const homeRecentSection = document.getElementById('home-recent-section');
+    const empty = document.getElementById('library-empty');
+    if (mylistSection) mylistSection.style.display = hasSaved ? '' : 'none';
+    if (recentSection) recentSection.style.display = hasRecent ? '' : 'none';
+    if (homeRecentSection) homeRecentSection.style.display = hasRecent ? '' : 'none';
+    if (empty) empty.style.display = hasSaved || hasRecent ? 'none' : 'grid';
+    updateAccountUI();
+    updateProfilePanel();
 }
 
 function toggleBookmarkModal() {
     if (!modalItem) return;
-    let saved = [];
-    try { saved = JSON.parse(localStorage.getItem('yoanime_bookmarks')) || []; } catch(e){}
-    
-    const index = saved.findIndex(x => String(x.id) === String(modalItem.id));
+    const profile = getProfileData();
+    const index = profile.bookmarks.findIndex(item => String(item.id) === String(modalItem.id));
+    const button = document.getElementById('modal-list-btn');
     if (index > -1) {
-        saved.splice(index, 1);
-        document.getElementById('modal-list-btn').textContent = '+ My List';
+        profile.bookmarks.splice(index, 1);
+        if (button) button.textContent = '+ My List';
+        showToast('Removed from My List');
     } else {
-        saved.unshift(modalItem);
-        document.getElementById('modal-list-btn').textContent = '✓ In My List';
+        profile.bookmarks.unshift(snapshotItem(modalItem));
+        if (button) button.textContent = '✓ In My List';
+        showToast('Saved to My List');
     }
-    
-    localStorage.setItem('yoanime_bookmarks', JSON.stringify(saved));
-    loadMyList(); // Re-render the row
+    saveProfileData(profile);
+    loadMyList();
+}
+
+function snapshotItem(item) {
+    return {
+        id: item.id,
+        tmdbId: item.tmdbId,
+        type: item.type,
+        isAnime: Boolean(item.isAnime),
+        title: item.title,
+        description: item.description,
+        rating: item.rating,
+        year: item.year,
+        poster: item.poster,
+        backdrop: item.backdrop,
+        seasons: item.seasons || 1,
+        episodesPerSeason: Array.isArray(item.episodesPerSeason) ? item.episodesPerSeason : [],
+        imdbId: item.imdbId || null
+    };
+}
+
+function recordRecentlyWatched() {
+    if (!currentItem) return;
+    const profile = getProfileData();
+    const entry = {
+        item: snapshotItem(currentItem),
+        season: currentSeason,
+        episode: currentEp,
+        isDub,
+        watchedAt: Date.now()
+    };
+    profile.recent = profile.recent.filter(saved => String(saved.item?.id) !== String(currentItem.id));
+    profile.recent.unshift(entry);
+    saveProfileData(profile);
+    loadMyList();
+}
+
+function openRecentById(id) {
+    const item = stateCache.recent.find(entry => String(entry.id) === String(id));
+    if (item) openPlayer(item, item._recentMeta);
+}
+
+function randomSalt() {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+}
+
+async function hashPassword(password, salt) {
+    const bytes = new TextEncoder().encode(`${salt}:${password}`);
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest), value => value.toString(16).padStart(2, '0')).join('');
+}
+
+function switchAuthMode(mode) {
+    const isCreate = mode === 'create';
+    document.getElementById('signin-form').hidden = isCreate;
+    document.getElementById('create-form').hidden = !isCreate;
+    document.getElementById('auth-tab-signin').classList.toggle('active', !isCreate);
+    document.getElementById('auth-tab-create').classList.toggle('active', isCreate);
+    setAuthStatus('');
+}
+
+function setAuthStatus(message, isError = false) {
+    const status = document.getElementById('auth-status');
+    if (!status) return;
+    status.textContent = message;
+    status.classList.toggle('error', isError);
+}
+
+async function handleCreateAccount(event) {
+    event.preventDefault();
+    const name = document.getElementById('create-name').value.trim();
+    const email = document.getElementById('create-email').value.trim().toLowerCase();
+    const password = document.getElementById('create-password').value;
+    const accounts = readLocalJson(ACCOUNTS_KEY, []);
+    if (accounts.some(account => account.email === email)) {
+        setAuthStatus('An account with that email already exists.', true);
+        return;
+    }
+
+    setAuthStatus('Creating your profile…');
+    const salt = randomSalt();
+    const account = {
+        id: `profile_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        name,
+        email,
+        salt,
+        passwordHash: await hashPassword(password, salt),
+        createdAt: Date.now()
+    };
+    accounts.push(account);
+    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+
+    const guestProfile = getProfileData(null);
+    saveProfileData(guestProfile, account.id);
+    currentAccount = account;
+    localStorage.setItem(SESSION_KEY, account.id);
+    loadMyList();
+    openAccountPanel();
+    showToast(`Welcome, ${account.name}`);
+}
+
+async function handleSignIn(event) {
+    event.preventDefault();
+    const email = document.getElementById('signin-email').value.trim().toLowerCase();
+    const password = document.getElementById('signin-password').value;
+    const account = readLocalJson(ACCOUNTS_KEY, []).find(saved => saved.email === email);
+    if (!account || await hashPassword(password, account.salt) !== account.passwordHash) {
+        setAuthStatus('Email or password is incorrect.', true);
+        return;
+    }
+    currentAccount = account;
+    localStorage.setItem(SESSION_KEY, account.id);
+    loadMyList();
+    openAccountPanel();
+    showToast(`Welcome back, ${account.name}`);
+}
+
+function signOutAccount() {
+    const name = currentAccount?.name;
+    currentAccount = null;
+    localStorage.removeItem(SESSION_KEY);
+    loadMyList();
+    closeAccountPanel();
+    showToast(name ? `${name} signed out` : 'Signed out');
+}
+
+function updateProfilePanel() {
+    if (!currentAccount) return;
+    const profile = getProfileData();
+    const avatar = document.getElementById('profile-hero-avatar');
+    if (avatar) avatar.textContent = currentAccount.name.charAt(0).toUpperCase();
+    document.getElementById('profile-display-name').textContent = currentAccount.name;
+    document.getElementById('profile-email').textContent = currentAccount.email;
+    document.getElementById('profile-recent-count').textContent = profile.recent.length;
+    document.getElementById('profile-list-count').textContent = profile.bookmarks.length;
+}
+
+function openAccountPanel() {
+    const modal = document.getElementById('account-modal');
+    const guestView = document.getElementById('auth-guest-view');
+    const profileView = document.getElementById('auth-profile-view');
+    guestView.hidden = Boolean(currentAccount);
+    profileView.hidden = !currentAccount;
+    if (currentAccount) updateProfilePanel();
+    else switchAuthMode('signin');
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeAccountPanel() {
+    document.getElementById('account-modal').classList.remove('open');
+    if (!document.getElementById('item-modal').classList.contains('open')) document.body.style.overflow = '';
+}
+
+let toastTimer = null;
+function showToast(message) {
+    const toast = document.getElementById('app-toast');
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
 }
 
 // Fetch full TV details (for Seasons/Episodes)
@@ -231,42 +504,41 @@ function closeMobileMenu() {
 }
 
 function showSection(section) {
-    ['home','anime','shows','movies','mylist'].forEach(s => {
+    const validSections = ['home', 'anime', 'shows', 'movies', 'mylist'];
+    if (!validSections.includes(section)) section = 'home';
+    currentSection = section;
+
+    validSections.forEach(s => {
         const el = document.getElementById(`nav-${s}`);
         if (el) el.classList.toggle('active', s === section);
     });
 
-    // We don't hide mylist-section generally, but if they click a specific section, we do.
-    ['trending-section','anime-section','shows-section','movies-section','action-section','comedy-section','horror-section','mylist-section'].forEach(id => {
-        const el = document.getElementById(id);
-        // Only show mylist if it has items, otherwise hide it even on home
-        if (id === 'mylist-section' && stateCache.mylist.length === 0) {
-            if(el) el.style.display = 'none';
-        } else {
-            if (el) el.style.display = '';
-        }
-    });
+    document.body.dataset.section = section;
+    const hero = document.getElementById('hero-section');
+    if (hero) hero.classList.toggle('hero-compact', section !== 'home');
+    document.querySelectorAll('.catalogue-view').forEach(view => view.classList.remove('active'));
+    const activeView = document.getElementById(`${section}-view`);
+    if (activeView) {
+        void activeView.offsetWidth;
+        activeView.classList.add('active');
+    }
 
     let heroData = [];
     if (section === 'anime') {
-        ['shows-section','movies-section','trending-section','action-section','comedy-section','horror-section','mylist-section'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).style.display = 'none'; });
         heroData = stateCache.anime.slice(0,6);
     } else if (section === 'shows') {
-        ['anime-section','movies-section','trending-section','action-section','comedy-section','horror-section','mylist-section'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).style.display = 'none'; });
         heroData = stateCache.shows.slice(0,6);
     } else if (section === 'movies') {
-        ['anime-section','shows-section','trending-section','action-section','comedy-section','horror-section','mylist-section'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).style.display = 'none'; });
         heroData = stateCache.movies.slice(0,6);
     } else if (section === 'mylist') {
-        ['anime-section','shows-section','trending-section','action-section','comedy-section','horror-section'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).style.display = 'none'; });
-        heroData = stateCache.mylist.slice(0,6);
-    } else if (section === 'search') {
-        ['anime-section','shows-section','trending-section','action-section','comedy-section','horror-section','mylist-section'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).style.display = 'none'; });
+        loadMyList();
+        heroData = [...stateCache.recent, ...stateCache.mylist].slice(0,6);
     } else {
         heroData = stateCache.trending.slice(0,6);
     }
 
     if (heroData.length > 0) initHero(heroData);
+    closeMobileMenu();
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function goHome() { showSection('home'); }
@@ -274,10 +546,10 @@ function goHome() { showSection('home'); }
 // ============================================
 // Rendering
 // ============================================
-function renderRow(rowId, items) {
+function renderRow(rowId, items, options = {}) {
     const row = document.getElementById(rowId);
     if (!row) return;
-    row.innerHTML = items.map(cardHTML).join('');
+    row.innerHTML = items.map(item => cardHTML(item, options)).join('');
 }
 
 // Show shimmering skeleton placeholders while data loads
@@ -289,22 +561,32 @@ function renderSkeletons(rowId, count = 10) {
     </div>`).join('');
 }
 
-function cardHTML(item) {
+function cardHTML(item, options = {}) {
+    const recentMeta = item._recentMeta;
+    const isRecent = Boolean(options.recent && recentMeta);
+    const action = isRecent ? `openRecentById('${item.id}')` : `openPlayerById('${item.id}')`;
+    const typeLabel = item.isAnime ? 'Anime' : item.type === 'movie' ? 'Movie' : 'Series';
+    const resumeLabel = isRecent
+        ? (item.type === 'movie' ? 'Resume movie' : `Resume S${recentMeta.season} · E${recentMeta.episode}${recentMeta.isDub ? ' · Dub' : ''}`)
+        : typeLabel;
     return `
-    <div class="card" onclick="openPlayerById('${item.id}')">
-        ${item.poster
-            ? `<img class="card-img" src="${item.poster}" alt="${escapeHtml(item.title)}" loading="lazy"
-                    onerror="this.src=''; this.style.background='#111';">`
-            : `<div class="card-img" style="background:#111; display:flex; align-items:center; justify-content:center; text-align:center; padding:10px;">${escapeHtml(item.title)}</div>`
-        }
-        <div class="card-overlay">
-            <div class="card-title">${escapeHtml(item.title)}</div>
-            <div class="card-meta">
-                <span class="card-rating">⭐ ${item.rating}</span>
-                <span>${item.year}</span>
-            </div>
-        </div>
-    </div>`;
+    <button type="button" class="card${isRecent ? ' recent-card' : ''}" onclick="${action}" aria-label="${escapeHtml(resumeLabel)}: ${escapeHtml(item.title)}">
+        <span class="card-media">
+            ${item.poster
+                ? `<img class="card-img" src="${item.poster}" alt="${escapeHtml(item.title)}" loading="lazy" onerror="this.removeAttribute('src'); this.style.background='#17151f';">`
+                : `<span class="card-img card-placeholder">${escapeHtml(item.title)}</span>`
+            }
+            <span class="card-overlay"><span class="card-play">▶</span></span>
+            ${isRecent ? `<span class="resume-pill">S${recentMeta.season} · E${recentMeta.episode}</span>` : ''}
+        </span>
+        <span class="card-copy">
+            <span class="card-title">${escapeHtml(item.title)}</span>
+            <span class="card-meta">
+                <span>${escapeHtml(resumeLabel)}</span>
+                <span class="card-rating">★ ${item.rating}</span>
+            </span>
+        </span>
+    </button>`;
 }
 
 function escapeHtml(s) {
@@ -396,10 +678,8 @@ async function openModal(item) {
         <span>${modalItem.year}</span>
         ${modalItem.seasons && modalItem.type !== 'movie' ? `<span>${modalItem.seasons} Season${modalItem.seasons>1?'s':''}</span>` : ''}`;
         
-    // Check bookmark status
-    let saved = [];
-    try { saved = JSON.parse(localStorage.getItem('yoanime_bookmarks')) || []; } catch(e){}
-    const isBookmarked = saved.some(x => String(x.id) === String(modalItem.id));
+    // Check bookmark status for the active local profile
+    const isBookmarked = getProfileData().bookmarks.some(x => String(x.id) === String(modalItem.id));
     if (isBookmarked) document.getElementById('modal-list-btn').textContent = '✓ In My List';
     else document.getElementById('modal-list-btn').textContent = '+ My List';
         
@@ -421,15 +701,18 @@ function openPlayerById(id) {
 // ============================================
 // Player  — Auto-Server Detection
 // ============================================
-async function openPlayer(item) {
+async function openPlayer(item, resumeState = null) {
     // Ensure we have full details before playing
     if (item.type === 'show' || item.isAnime) {
         item = await fetchFullTVDetails(item);
     }
     
     currentItem   = item;
-    currentSeason = 1;
-    currentEp     = 1;
+    const requestedSeason = Number(resumeState?.season) || 1;
+    currentSeason = Math.min(Math.max(requestedSeason, 1), item.seasons || 1);
+    const episodeCount = (item.episodesPerSeason && item.episodesPerSeason[currentSeason - 1]) || 12;
+    currentEp = Math.min(Math.max(Number(resumeState?.episode) || 1, 1), episodeCount);
+    isDub = Boolean(resumeState?.isDub);
     serverIndex   = 0;
     // AniChi is season-aware, so prefer it for anime instead of a provider
     // that may reuse the Season 1 catalogue id for later seasons.
@@ -745,6 +1028,7 @@ async function _loadVideoInternal() {
                 loading.classList.add('hidden');
                 iframe.style.display = 'block';
                 isStreaming = true;
+                recordRecentlyWatched();
                 console.log(`[Player] ✓ ${srv.name} loaded successfully`);
             };
 
@@ -787,16 +1071,18 @@ function playRawStream(url, type) {
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
                 loading.classList.add('hidden');
                 isStreaming = true;
+                recordRecentlyWatched();
                 video.play();
             });
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
             video.src = url;
             loading.classList.add('hidden');
             isStreaming = true;
+            recordRecentlyWatched();
         }
     } else {
         video.src = url;
-        video.oncanplay = () => { loading.classList.add('hidden'); isStreaming = true; };
+        video.oncanplay = () => { loading.classList.add('hidden'); isStreaming = true; recordRecentlyWatched(); };
     }
 }
 
@@ -1071,7 +1357,7 @@ window.handleSearch = function(query) {
             }
             
             overlay.innerHTML = all.map(item => `
-                <div class="search-item" onclick="openPlayerById('${item.id}'); document.getElementById('search-overlay').classList.remove('open'); document.getElementById('search-input').value='';">
+                <div class="search-item" onclick="openPlayerById('${item.id}'); document.getElementById('search-overlay').classList.remove('active'); document.getElementById('search-input').value='';">
                     ${item.poster ? `<img src="${item.poster}" alt="${escapeHtml(item.title)}">` : `<div style="width:50px;height:75px;background:#222;border-radius:4px;"></div>`}
                     <div class="search-item-info">
                         <div class="search-item-title">${escapeHtml(item.title)}</div>
