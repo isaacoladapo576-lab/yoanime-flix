@@ -830,6 +830,7 @@ async function resolveOwnedMediaStream(item, season, episode) {
     });
     const response = await fetch(`/api/owned-media/resolve?${params}`, { cache: 'no-store' });
     const data = await response.json().catch(() => ({}));
+    if (response.status === 404) return null;
     if (!response.ok || !data.source?.streamUrl) {
         throw new Error(data.error || 'No owned-media file matches this title and episode');
     }
@@ -842,7 +843,7 @@ async function resolveOwnedMediaStream(item, season, episode) {
     };
 }
 
-function getCurrentStreamServers() {
+function getCurrentStreamServers(ownedMediaSource = null) {
     if (!window.StreamSources) return [];
     const type = currentItem.isAnime ? 'anime' : currentItem.type;
     const servers = window.StreamSources.buildStreamSources({
@@ -855,14 +856,16 @@ function getCurrentStreamServers() {
         audio: isDub ? 'dub' : 'sub'
     }).map(source => ({ ...source, url: () => source.url }));
 
-    servers.unshift({
-        id: 'owned-media',
-        name: 'My downloadable media',
-        supportsDub: true,
-        iframe: true,
-        isProxy: true,
-        url: resolveOwnedMediaStream
-    });
+    if (ownedMediaSource) {
+        servers.unshift({
+            id: 'owned-media',
+            name: 'My downloadable media',
+            supportsDub: true,
+            iframe: true,
+            isProxy: true,
+            url: () => ownedMediaSource
+        });
+    }
 
     if (currentItem.isAnime) {
         servers.splice(Math.min(1, servers.length), 0, {
@@ -972,7 +975,16 @@ async function _loadVideoInternal() {
 
     if (loadId !== playbackLoadId || !currentItem) return;
 
-    const servers = getCurrentStreamServers();
+    setPlayerSourceStatus('Checking your downloadable library');
+    let ownedMediaSource = null;
+    try {
+        ownedMediaSource = await resolveOwnedMediaStream(currentItem, currentSeason, currentEp);
+    } catch (error) {
+        console.warn(`[Owned media] Availability check failed: ${error.message}`);
+    }
+    if (loadId !== playbackLoadId || !currentItem) return;
+
+    const servers = getCurrentStreamServers(ownedMediaSource);
     buildServerSelect(servers);
 
     if (!servers.length) {
