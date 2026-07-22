@@ -242,6 +242,14 @@ async function validateEmbedUrl(url) {
         return { available: false, reason: 'unsupported embed URL protocol' };
     }
 
+    // MegaPlay only serves its player with AniChi's privileged Referer. A URL
+    // that passes a backend probe can still show every user a 410 page when it
+    // is embedded from this app, so it is never a browser-compatible result.
+    const hostname = parsed.hostname.toLowerCase();
+    if (hostname === 'megaplay.buzz' || hostname.endsWith('.megaplay.buzz')) {
+        return { available: false, reason: 'embed host requires an incompatible referrer' };
+    }
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     try {
@@ -648,5 +656,6 @@ module.exports = {
     mapEpisodeAcrossParts,
     scrapeAnichi,
     scrapeAnichiBrowser,
-    scrapeAnichiHttp
+    scrapeAnichiHttp,
+    validateEmbedUrl
 };

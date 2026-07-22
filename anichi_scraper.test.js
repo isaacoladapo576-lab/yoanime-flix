@@ -9,7 +9,8 @@ const {
     findSeasonPartPaths,
     findServerLinkId,
     findServerLinkIds,
-    mapEpisodeAcrossParts
+    mapEpisodeAcrossParts,
+    validateEmbedUrl
 } = require('./anichi_scraper');
 
 const searchFixture = `
@@ -86,6 +87,13 @@ test('AniChi embed validation recognizes removed-file pages', () => {
     `), true);
     assert.equal(detectUnavailableEmbedResponse(410, ''), true);
     assert.equal(detectUnavailableEmbedResponse(200, '<html><video id="player"></video></html>'), false);
+});
+
+test('AniChi rejects hosts that cannot be embedded from this app', async () => {
+    assert.deepEqual(
+        await validateEmbedUrl('https://megaplay.buzz/stream/example/dub'),
+        { available: false, reason: 'embed host requires an incompatible referrer' }
+    );
 });
 
 test('AniChi URL parser handles nested JSON and iframe HTML', () => {
