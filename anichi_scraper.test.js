@@ -3,10 +3,12 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const {
+    detectUnavailableEmbedResponse,
     extractResolvedUrl,
     findAnimePath,
     findSeasonPartPaths,
     findServerLinkId,
+    findServerLinkIds,
     mapEpisodeAcrossParts
 } = require('./anichi_scraper');
 
@@ -68,6 +70,22 @@ test('AniChi server parser prefers the full HD mirror for dubs', () => {
         <button data-link-id="alternate-dub">Vidstream-2</button>
       </div>`;
     assert.equal(findServerLinkId(html, true), 'full-dub');
+    assert.deepEqual(findServerLinkIds(html, true), [
+        'full-dub',
+        'alternate-dub',
+        'short-preview'
+    ]);
+});
+
+test('AniChi embed validation recognizes removed-file pages', () => {
+    assert.equal(detectUnavailableEmbedResponse(200, `
+        <h1>We're Sorry!</h1>
+        <p>We can't find the file you are looking for. It may have been deleted by the owner
+        or was removed due to a copyright violation.</p>
+        <span>Error Code: 410</span>
+    `), true);
+    assert.equal(detectUnavailableEmbedResponse(410, ''), true);
+    assert.equal(detectUnavailableEmbedResponse(200, '<html><video id="player"></video></html>'), false);
 });
 
 test('AniChi URL parser handles nested JSON and iframe HTML', () => {

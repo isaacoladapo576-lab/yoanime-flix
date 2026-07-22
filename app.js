@@ -717,7 +717,6 @@ async function openPlayer(item, resumeState = null) {
     // AniChi is season-aware, so prefer it for anime instead of a provider
     // that may reuse the Season 1 catalogue id for later seasons.
     currentServerIndex = item.isAnime ? 1 : 0;
-    serverSelectionLocked = false;
     isStreaming   = false;
 
     document.getElementById('player-page').style.display = 'flex';
@@ -775,19 +774,26 @@ async function resolveAniChiStream(item, season, episode) {
     try {
         let lastError = new Error('AniChi API is unreachable');
         for (const apiUrl of candidates) {
-            try {
-                const response = await fetch(apiUrl, {
-                    cache: 'no-store',
-                    signal: controller.signal
-                });
-                const data = await response.json().catch(() => ({}));
-                if (response.ok && data.url) {
-                    return { url: data.url, iframe: true };
+            for (let attempt = 0; attempt < 2; attempt++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        cache: 'no-store',
+                        signal: controller.signal
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (response.ok && data.url) {
+                        return { url: data.url, iframe: true };
+                    }
+                    lastError = new Error(data.error || `AniChi returned HTTP ${response.status}`);
+
+                    // Retry transient upstream failures, but not permanent client errors.
+                    if (response.status < 500 && response.status !== 429) break;
+                } catch (error) {
+                    if (error.name === 'AbortError') throw error;
+                    lastError = error;
                 }
-                lastError = new Error(data.error || `AniChi returned HTTP ${response.status}`);
-            } catch (error) {
-                if (error.name === 'AbortError') throw error;
-                lastError = error;
+
+                if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 750));
             }
         }
         throw lastError;
@@ -851,7 +857,6 @@ async function checkStreamEndpoint(url) {
 }
 
 let currentServerIndex = 0;
-let serverSelectionLocked = false;
 let _loadVideoDebounceTimer = null;
 
 function loadVideo() {
@@ -925,26 +930,26 @@ async function _loadVideoInternal() {
 
     // ── Fallback cascade ──────────────────────────────────────
     const startIndex = currentServerIndex;
-    const allowFallback = !serverSelectionLocked;
+    const requiresDub = currentItem.isAnime && isDub;
+    const fallbackOrder = window.StreamSources.buildCompatibleFallbackOrder(startIndex, servers, requiresDub);
     let attempts = 0;
-    const maxAttempts = allowFallback ? servers.length : 1;
+    const maxAttempts = fallbackOrder.length;
 
     function handleServerFailure(srv, message) {
-        if (!allowFallback) {
-            showPlayerError(`${srv.name} failed: ${message}. Please choose another server or try again.`);
-            return;
-        }
-        tryServer(currentServerIndex + 1);
+        console.warn(`[Player] ${srv.name} failed: ${message}. Trying the next server.`);
+        tryServer();
     }
 
-    async function tryServer(index) {
+    async function tryServer() {
         if (loadId !== playbackLoadId || !currentItem) return;
         if (attempts >= maxAttempts) {
-            showPlayerError('All servers failed. Please try again later.');
+            showPlayerError(requiresDub
+                ? 'All dub-capable servers failed. Please try Sub or try again later.'
+                : 'All servers failed. Please try again later.');
             return;
         }
+        currentServerIndex = fallbackOrder[attempts];
         attempts++;
-        currentServerIndex = index % servers.length;
         const srv = servers[currentServerIndex];
         buildServerSelect(servers);
 
@@ -1041,7 +1046,7 @@ async function _loadVideoInternal() {
         }
     }
 
-    tryServer(startIndex);
+    tryServer();
 }
 
 // Play a raw HLS or MP4 stream directly using hls.js
@@ -1150,7 +1155,6 @@ window.setDub = function(dub) {
 
 window.changeServer = function(index) {
     currentServerIndex = parseInt(index);
-    serverSelectionLocked = true;
     loadVideo();
 };
 

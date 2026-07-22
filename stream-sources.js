@@ -106,5 +106,29 @@
         }
     }
 
-    return Object.freeze({ PROVIDER_HOSTS, buildStreamSources, isAllowedProviderUrl });
+    function buildFallbackOrder(startIndex, serverCount) {
+        const count = Number(serverCount);
+        if (!Number.isInteger(count) || count <= 0) return [];
+
+        const requestedStart = Number(startIndex);
+        const normalizedStart = Number.isInteger(requestedStart)
+            ? ((requestedStart % count) + count) % count
+            : 0;
+
+        return Array.from({ length: count }, (_, offset) => (normalizedStart + offset) % count);
+    }
+
+    function buildCompatibleFallbackOrder(startIndex, servers, requireDub = false) {
+        if (!Array.isArray(servers)) return [];
+        const order = buildFallbackOrder(startIndex, servers.length);
+        return requireDub ? order.filter(index => servers[index]?.supportsDub === true) : order;
+    }
+
+    return Object.freeze({
+        PROVIDER_HOSTS,
+        buildStreamSources,
+        buildFallbackOrder,
+        buildCompatibleFallbackOrder,
+        isAllowedProviderUrl
+    });
 });

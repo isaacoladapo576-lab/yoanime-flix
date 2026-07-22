@@ -180,7 +180,7 @@ function extractResolvedUrl(value) {
     return urlMatch ? urlMatch[0] : null;
 }
 
-function findServerLinkId(serverHtml, isDub) {
+function findServerLinkIds(serverHtml, isDub) {
     const desiredType = isDub ? 'dub' : 'sub';
     const findServerGroup = type => String(serverHtml).match(
         new RegExp(`<div\\b[^>]*data-type=["']${type}["'][^>]*>([\\s\\S]*?)<\\/div>`, 'i')
@@ -207,11 +207,74 @@ function findServerLinkId(serverHtml, isDub) {
                 return rank(a) - rank(b);
             });
         }
-        return candidates[0].linkId;
+        return candidates.map(candidate => candidate.linkId);
     }
 
     const available = Array.from(String(serverHtml).matchAll(/data-type=["']([^"']+)["']/gi), match => match[1]).join(', ') || 'none';
     throw new Error(`No ${desiredType} server was found on AniChi (available: ${available})`);
+}
+
+function findServerLinkId(serverHtml, isDub) {
+    return findServerLinkIds(serverHtml, isDub)[0];
+}
+
+function detectUnavailableEmbedResponse(status, body) {
+    if ([404, 410].includes(Number(status)) || Number(status) >= 500) return true;
+    const text = String(body || '').slice(0, 500000);
+    return [
+        /error\s*code\s*:?\s*410/i,
+        /(?:can't|cannot)\s+find\s+the\s+file/i,
+        /file\s+you\s+are\s+looking\s+for/i,
+        /deleted\s+by\s+the\s+owner/i,
+        /removed\s+due\s+to\s+(?:a\s+)?copyright/i,
+        /(?:video|file|stream)\s+(?:is\s+)?(?:unavailable|not\s+found|removed)/i
+    ].some(pattern => pattern.test(text));
+}
+
+async function validateEmbedUrl(url) {
+    let parsed;
+    try {
+        parsed = new URL(url);
+    } catch {
+        return { available: false, reason: 'invalid embed URL' };
+    }
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        return { available: false, reason: 'unsupported embed URL protocol' };
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+        const response = await fetch(parsed.href, {
+            redirect: 'follow',
+            signal: controller.signal,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36',
+                // Deliberately omit AniChi's Referer. The returned URL is loaded
+                // from this app, so validating with AniChi's privileged referrer
+                // would incorrectly accept hosts that show users a 410 page.
+                'Accept': 'text/html,application/xhtml+xml,*/*'
+            }
+        });
+        const contentType = response.headers.get('content-type') || '';
+        if (/video|mpegurl|octet-stream/i.test(contentType)) {
+            response.body?.cancel().catch(() => {});
+            return { available: true };
+        }
+        const body = await response.text();
+        if (detectUnavailableEmbedResponse(response.status, body)) {
+            return { available: false, reason: `embed returned an unavailable-file page (${response.status})` };
+        }
+
+        // 401/403/429 pages may still work in the user's browser. Only reject
+        // definitive missing-file responses; treat other responses as usable.
+        return { available: true };
+    } catch (error) {
+        // A server-side probe can be blocked while the browser embed still works.
+        return { available: null, reason: error.message };
+    } finally {
+        clearTimeout(timeout);
+    }
 }
 
 async function loadEpisodeContext(animePath, referer) {
@@ -270,17 +333,39 @@ async function scrapeAnichiHttp(title, episodeStr, seasonStr, isDub) {
         watchUrl
     );
     const serverHtml = parseJsonResult(serverListBody, 'AniChi server list');
-    const linkId = findServerLinkId(serverHtml, isDub);
+    const linkIds = findServerLinkIds(serverHtml, isDub).slice(0, 5);
+    let unverifiedUrl = null;
+    const failures = [];
 
-    const resolveBody = await requestAnichi(
-        `${ANICHI_ORIGIN}/ajax/server?get=${encodeURIComponent(linkId)}`,
-        watchUrl
-    );
-    let resolveData = resolveBody;
-    try { resolveData = JSON.parse(resolveBody); } catch (_) {}
-    const resolvedUrl = extractResolvedUrl(resolveData);
-    if (!resolvedUrl) throw new Error('AniChi server did not return an embed URL');
-    return resolvedUrl;
+    for (const linkId of linkIds) {
+        try {
+            const resolveBody = await requestAnichi(
+                `${ANICHI_ORIGIN}/ajax/server?get=${encodeURIComponent(linkId)}`,
+                watchUrl
+            );
+            let resolveData = resolveBody;
+            try { resolveData = JSON.parse(resolveBody); } catch (_) {}
+            const resolvedUrl = extractResolvedUrl(resolveData);
+            if (!resolvedUrl) {
+                failures.push(`${linkId}: no embed URL`);
+                continue;
+            }
+
+            const validation = await validateEmbedUrl(resolvedUrl);
+            if (validation.available === true) return resolvedUrl;
+            if (validation.available == null && !unverifiedUrl) unverifiedUrl = resolvedUrl;
+            failures.push(`${linkId}: ${validation.reason || 'unavailable'}`);
+        } catch (error) {
+            failures.push(`${linkId}: ${error.message}`);
+        }
+    }
+
+    // Do not discard a potentially working browser-only host merely because
+    // its server-side validation request was blocked or timed out.
+    if (unverifiedUrl) return unverifiedUrl;
+
+    const desiredType = isDub ? 'dub' : 'sub';
+    throw new Error(`No working ${desiredType} mirror was found on AniChi (${failures.join('; ')})`);
 }
 
 async function scrapeAnichiBrowser(title, episodeStr, seasonStr, isDub) {
@@ -554,10 +639,12 @@ if (require.main === module) {
 }
 
 module.exports = {
+    detectUnavailableEmbedResponse,
     extractResolvedUrl,
     findAnimePath,
     findSeasonPartPaths,
     findServerLinkId,
+    findServerLinkIds,
     mapEpisodeAcrossParts,
     scrapeAnichi,
     scrapeAnichiBrowser,
